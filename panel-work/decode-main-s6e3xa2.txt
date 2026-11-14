@@ -1,0 +1,211 @@
+# ss_dsi_panel_S6E3XA2_AMF755ZE01_QXGA
+# DTS lines 12238..12624
+
+## mode table -- 4 timing nodes
+
+  node                  WxH  fps   h pw/bp/fp     v pw/bp/fp        bitclk     slice  xfer us
+  qxga120hs     2208x1768    120  76/76/76     68/68/61     1,362,000,000 1104x34        7533
+  qxga96hs      2208x1768     96  76/76/76     68/67/62     1,362,000,000 1104x34        7533
+  qxga60hs      2208x1768     60  76/76/76     68/66/63     1,362,000,000 1104x34        7533
+  qxga48hs      2208x1768     48  76/76/76     68/65/64     1,362,000,000 1104x34        7533
+
+  DSI PHY timings (qcom,mdss-dsi-panel-phy-timings):
+    [00 2c 0c 0c 29 26 0c 0c 0b 02 04 00 25 1b]  <- qxga120hs, qxga96hs, qxga60hs, qxga48hs
+
+# ss_dsi_panel_S6E3XA2_AMF755ZE01_QXGA
+# DTS lines 12238..12624
+
+## qcom,mdss-dsi-te-dcs-command  (line 12254)
+   4 bytes -> 0 commands, 0ms total delay
+
+
+## qcom,mdss-dsi-timing-switch-command  (line 12445)
+   60 bytes -> 6 commands, 0ms total delay
+    GENERIC_LONG_WRITE       0xf0 [  2] 5a 5a
+    GENERIC_LONG_WRITE       0x60 [  2] 08 00
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 06 f2
+    GENERIC_LONG_WRITE       0xf2 [  2] 00 08
+    GENERIC_LONG_WRITE       0xf7 [  1] 0f
+    GENERIC_LONG_WRITE       0xf0 [  2] a5 a5
+
+## qcom,mdss-dsi-on-command  (line 12446)
+   602 bytes -> 50 commands, 120ms total delay
+    GENERIC_LONG_WRITE       0x9f [  2] a5 a5
+    GENERIC_LONG_WRITE       0xf0 [  2] 5a 5a
+    GENERIC_LONG_WRITE       0xfc [  2] 5a 5a
+    GENERIC_LONG_WRITE       0xf1 [  2] 5a 5a
+    GENERIC_LONG_WRITE       0xd0 [  1] 08
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 0d c1
+    GENERIC_LONG_WRITE       0xc1 [  1] db
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 2a c1
+    GENERIC_LONG_WRITE       0xc1 [  1] c0
+    GENERIC_LONG_WRITE       0xb0 [  3] 03 7e 68
+    GENERIC_LONG_WRITE       0x68 [  2] 01 30
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 38 68
+    GENERIC_LONG_WRITE       0x68 [  5] 01 30 01 00 50
+    DCS_SHORT_WRITE          0x11 [  0]   <- exit_sleep_mode  wait 120ms
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 2a c1
+    GENERIC_LONG_WRITE       0xc1 [  1] 00
+    GENERIC_LONG_WRITE       0xf1 [  2] f1 a2
+    COMPRESSION_MODE         enable=1
+    PPS_LONG_WRITE           [ 89] DSC PPS
+      dsc_version        1.1
+      bits_per_component 8
+      linebuf_depth      9
+      bits_per_pixel     8  (raw 128, 1/16 units)
+      pic_height         1768
+      pic_width          2208
+      slice_height       34
+      slice_width        1104
+      chunk_size         1104
+      initial_xmit_delay 512
+      initial_dec_delay  808
+      block_pred_enable  1
+      convert_rgb        1
+      slices_per_line    2
+    GENERIC_LONG_WRITE       0x35 [  1] 00  <- set_tear_on
+    GENERIC_LONG_WRITE       0xb9 [  6] 01 00 06 fe 07 09
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 2d f4
+    GENERIC_LONG_WRITE       0xf4 [  1] 18
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 01 ed
+    GENERIC_LONG_WRITE       0xed [  2] 40 20
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 1e c5
+    GENERIC_LONG_WRITE       0xc5 [  8] 11 10 50 05 4d 7c 4b ef
+    GENERIC_LONG_WRITE       0xb9 [  1] 00
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 0e b9
+    GENERIC_LONG_WRITE       0xb9 [  2] b1 21
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 19 b9
+    GENERIC_LONG_WRITE       0xb9 [  4] 08 cc cc cc
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 ae 68
+    GENERIC_LONG_WRITE       0x68 [  6] 01 30 01 30 01 30
+    GENERIC_LONG_WRITE       0x60 [  2] 08 00
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 0e 66
+    GENERIC_LONG_WRITE       0x66 [  1] 01
+    GENERIC_LONG_WRITE       0xb0 [  2] d6 63
+    GENERIC_LONG_WRITE       0x63 [  1] 02
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 0d 66
+    GENERIC_LONG_WRITE       0x66 [  1] 60
+    GENERIC_LONG_WRITE       0x53 [  1] 28  <- write_control_display
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 12 66
+    GENERIC_LONG_WRITE       0x66 [  1] 16
+    GENERIC_LONG_WRITE       0x51 [  2] 00 55  <- set_display_brightness
+    GENERIC_LONG_WRITE       0xf7 [  1] 0f
+    GENERIC_LONG_WRITE       0xf1 [  2] a5 a5
+    GENERIC_LONG_WRITE       0xfc [  2] a5 a5
+    GENERIC_LONG_WRITE       0xf0 [  2] a5 a5
+    GENERIC_LONG_WRITE       0x9f [  2] 5a 5a
+
+## qcom,mdss-dsi-off-command  (line 12447)
+   56 bytes -> 6 commands, 120ms total delay
+    GENERIC_LONG_WRITE       0x9f [  2] a5 a5
+    GENERIC_LONG_WRITE       0xf0 [  2] 5a 5a
+    DCS_SHORT_WRITE          0x28 [  0]   <- set_display_off
+    DCS_SHORT_WRITE          0x10 [  0]   <- enter_sleep_mode
+    GENERIC_LONG_WRITE       0xf0 [  2] a5 a5  wait 120ms
+    GENERIC_LONG_WRITE       0x9f [  2] 5a 5a
+
+## qcom,mdss-dsi-timing-switch-command  (line 12482)
+   106 bytes -> 10 commands, 0ms total delay
+    GENERIC_LONG_WRITE       0xf0 [  2] 5a 5a
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 ae 68
+    GENERIC_LONG_WRITE       0x68 [  6] 01 7c 01 7c 01 7c
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 06 bd
+    GENERIC_LONG_WRITE       0xbd [  2] 00 00
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 06 f2
+    GENERIC_LONG_WRITE       0xf2 [  2] 01 cc
+    GENERIC_LONG_WRITE       0x60 [  2] 08 00
+    GENERIC_LONG_WRITE       0xf7 [  1] 0f
+    GENERIC_LONG_WRITE       0xf0 [  2] a5 a5
+
+## qcom,mdss-dsi-on-command  (line 12483) -- IDENTICAL to line 12446
+
+## qcom,mdss-dsi-off-command  (line 12484) -- IDENTICAL to line 12447
+
+## qcom,mdss-dsi-timing-switch-command  (line 12520) -- IDENTICAL to line 12445
+
+## qcom,mdss-dsi-on-command  (line 12521)
+   602 bytes -> 50 commands, 120ms total delay
+    GENERIC_LONG_WRITE       0x9f [  2] a5 a5
+    GENERIC_LONG_WRITE       0xf0 [  2] 5a 5a
+    GENERIC_LONG_WRITE       0xfc [  2] 5a 5a
+    GENERIC_LONG_WRITE       0xf1 [  2] 5a 5a
+    GENERIC_LONG_WRITE       0xd0 [  1] 08
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 0d c1
+    GENERIC_LONG_WRITE       0xc1 [  1] db
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 2a c1
+    GENERIC_LONG_WRITE       0xc1 [  1] c0
+    GENERIC_LONG_WRITE       0xb0 [  3] 03 7e 68
+    GENERIC_LONG_WRITE       0x68 [  2] 01 30
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 38 68
+    GENERIC_LONG_WRITE       0x68 [  5] 01 30 01 00 50
+    DCS_SHORT_WRITE          0x11 [  0]   <- exit_sleep_mode  wait 120ms
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 2a c1
+    GENERIC_LONG_WRITE       0xc1 [  1] 00
+    GENERIC_LONG_WRITE       0xf1 [  2] f1 a2
+    COMPRESSION_MODE         enable=1
+    PPS_LONG_WRITE           [ 89] DSC PPS
+      dsc_version        1.1
+      bits_per_component 8
+      linebuf_depth      9
+      bits_per_pixel     8  (raw 128, 1/16 units)
+      pic_height         1768
+      pic_width          2208
+      slice_height       34
+      slice_width        1104
+      chunk_size         1104
+      initial_xmit_delay 512
+      initial_dec_delay  808
+      block_pred_enable  1
+      convert_rgb        1
+      slices_per_line    2
+    GENERIC_LONG_WRITE       0x35 [  1] 00  <- set_tear_on
+    GENERIC_LONG_WRITE       0xb9 [  6] 01 01 06 fe 07 09
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 2d f4
+    GENERIC_LONG_WRITE       0xf4 [  1] 18
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 01 ed
+    GENERIC_LONG_WRITE       0xed [  2] 40 20
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 1e c5
+    GENERIC_LONG_WRITE       0xc5 [  8] 11 10 50 05 4d 7c 4b ef
+    GENERIC_LONG_WRITE       0xb9 [  1] 00
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 0e b9
+    GENERIC_LONG_WRITE       0xb9 [  2] b1 21
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 19 b9
+    GENERIC_LONG_WRITE       0xb9 [  4] 08 cc cc cc
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 ae 68
+    GENERIC_LONG_WRITE       0x68 [  6] 01 30 01 30 01 30
+    GENERIC_LONG_WRITE       0x60 [  2] 08 00
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 0e 66
+    GENERIC_LONG_WRITE       0x66 [  1] 01
+    GENERIC_LONG_WRITE       0xb0 [  2] d6 63
+    GENERIC_LONG_WRITE       0x63 [  1] 02
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 0d 66
+    GENERIC_LONG_WRITE       0x66 [  1] 60
+    GENERIC_LONG_WRITE       0x53 [  1] 28  <- write_control_display
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 12 66
+    GENERIC_LONG_WRITE       0x66 [  1] 16
+    GENERIC_LONG_WRITE       0x51 [  2] 00 55  <- set_display_brightness
+    GENERIC_LONG_WRITE       0xf7 [  1] 0f
+    GENERIC_LONG_WRITE       0xf1 [  2] a5 a5
+    GENERIC_LONG_WRITE       0xfc [  2] a5 a5
+    GENERIC_LONG_WRITE       0xf0 [  2] a5 a5
+    GENERIC_LONG_WRITE       0x9f [  2] 5a 5a
+
+## qcom,mdss-dsi-off-command  (line 12522) -- IDENTICAL to line 12447
+
+## qcom,mdss-dsi-timing-switch-command  (line 12557)
+   106 bytes -> 10 commands, 0ms total delay
+    GENERIC_LONG_WRITE       0xf0 [  2] 5a 5a
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 ae 68
+    GENERIC_LONG_WRITE       0x68 [  6] 01 7c 01 7c 01 7c
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 06 bd
+    GENERIC_LONG_WRITE       0xbd [  2] 00 01
+    GENERIC_LONG_WRITE       0xb0 [  3] 00 06 f2
+    GENERIC_LONG_WRITE       0xf2 [  2] 01 cc
+    GENERIC_LONG_WRITE       0x60 [  2] 08 00
+    GENERIC_LONG_WRITE       0xf7 [  1] 0f
+    GENERIC_LONG_WRITE       0xf0 [  2] a5 a5
+
+## qcom,mdss-dsi-on-command  (line 12558) -- IDENTICAL to line 12521
+
+## qcom,mdss-dsi-off-command  (line 12559) -- IDENTICAL to line 12447
+

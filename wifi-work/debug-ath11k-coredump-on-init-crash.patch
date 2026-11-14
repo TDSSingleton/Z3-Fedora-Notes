@@ -1,0 +1,13 @@
+diff --git a/drivers/net/wireless/ath/ath11k/core.c b/drivers/net/wireless/ath/ath11k/core.c
+index 8dacc878c..500d961d0 100644
+--- a/drivers/net/wireless/ath/ath11k/core.c
++++ b/drivers/net/wireless/ath/ath11k/core.c
+@@ -2536,6 +2536,8 @@ static void ath11k_core_reset(struct work_struct *work)
+ 
+ 	if (!(test_bit(ATH11K_FLAG_REGISTERED, &ab->dev_flags))) {
+ 		ath11k_warn(ab, "ignore reset dev flags 0x%lx\n", ab->dev_flags);
++		/* q2q debug: still collect the RDDM dump for init-time crashes */
++		ath11k_coredump_collect(ab);
+ 		return;
+ 	}
+ 

@@ -1,0 +1,52 @@
+#!/usr/bin/python3
+"""Fold 3: inner panel dark while the phone is closed. Nothing else changes:
+no output is disabled, no window or layout moves, the cover screen stays on.
+
+Chain:  hinge magnet -> AK09970 digital hall -> kernel driver ak09970-fold
+(input device "fold-hall", SW_MACHINE_COVER) -> this service -> the inner
+panel driver's fold_blank attribute (DCS display-off on that panel only).
+"""
+import fcntl, glob, os, struct, sys, time
+
+SW_MACHINE_COVER, EV_SW = 0x10, 0x05
+
+def log(*a): print(*a, flush=True)
+
+def find_dev():
+    for p in sorted(glob.glob("/sys/class/input/event*")):
+        try:
+            sw = int(open(p + "/device/capabilities/sw").read().split()[-1], 16)
+        except OSError: continue
+        if sw >> SW_MACHINE_COVER & 1: return "/dev/input/" + os.path.basename(p)
+
+def closed_now(fd):
+    buf = bytearray(8)
+    fcntl.ioctl(fd, (2 << 30) | (len(buf) << 16) | (ord("E") << 8) | 0x1b, buf)  # EVIOCGSW
+    return bool(int.from_bytes(buf, "little") >> SW_MACHINE_COVER & 1)
+
+def blank(closed):
+    nodes = glob.glob("/sys/bus/mipi-dsi/devices/*/fold_blank")
+    if not nodes: log("no fold_blank attribute (old panel module?)"); return
+    try:
+        open(nodes[0], "w").write("1" if closed else "0")
+        log("closed -> inner panel off" if closed else "open -> inner panel on")
+    except OSError as e:
+        log("fold_blank write failed:", e)
+
+dev = None
+for _ in range(30):
+    dev = find_dev()
+    if dev: break
+    time.sleep(1)
+if not dev: sys.exit("no input device with SW_MACHINE_COVER (ak09970-fold not loaded?)")
+fd = os.open(dev, os.O_RDONLY)
+state = closed_now(fd)
+log("watching", dev, "initial:", "closed" if state else "open")
+blank(state)
+SZ = struct.calcsize("llHHi")
+while True:
+    os.read(fd, SZ * 32)              # any event: wake up, then trust the level, not the edge
+    time.sleep(0.25)
+    now = closed_now(fd)
+    if now != state:
+        state = now; blank(state)

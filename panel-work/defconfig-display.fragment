@@ -1,0 +1,32 @@
+# Kernel config needed for SM8350 display. All of this already exists upstream;
+# none of it requires new drivers.
+
+# Display clock controller -- the multi-SoC driver that covers SM8350.
+# Keep it a MODULE: the Galaxy S22 port reports a built-in dispcc garbled the
+# bootloader simple-framebuffer handoff.
+CONFIG_COMMON_CLK_QCOM=y
+CONFIG_SM_GCC_8350=y
+CONFIG_SM_DISPCC_8250=m
+
+# DRM / MSM display
+CONFIG_DRM=y
+CONFIG_DRM_MSM=m
+CONFIG_DRM_MSM_DPU=y
+CONFIG_DRM_MSM_DSI=y
+CONFIG_DRM_MSM_DSI_28NM_PHY=n
+CONFIG_DRM_MSM_DSI_PHY_5NM=y
+CONFIG_DRM_DISPLAY_DSC_HELPER=y
+
+# Panel
+# CONFIG_DRM_PANEL_SAMSUNG_S6E3XA2 -- new, from panel-work/
+
+# Display PMIC that feeds the panel rails (already upstream)
+CONFIG_REGULATOR_S2DOS05=y
+
+# Stage-1 bootloader framebuffer console
+CONFIG_FB=y
+CONFIG_FB_SIMPLE=y
+CONFIG_FRAMEBUFFER_CONSOLE=y
+
+# GPU (needs the a660_zap firmware blob from the device)
+CONFIG_DRM_MSM_GPU_STATE=y

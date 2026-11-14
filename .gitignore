@@ -1,0 +1,73 @@
+# ---------------------------------------------------------------------------
+# Never commit: per-device data and proprietary firmware.
+# EFS/persist/GPT dumps carry identifiers unique to one phone (IMEI, BT/WiFi
+# MAC, disk GUIDs); Qualcomm/Samsung firmware is not redistributable.
+# ---------------------------------------------------------------------------
+capture/
+backups/
+firmware-q2q/
+rescue/gpt/
+rescue/gpt-adb/
+rescue/out/
+*.img
+*.tar
+*.tar.gz
+*.tar.md5
+# generic 2 KiB BCB images used by the force-recovery procedure: keep
+!rescue/misc-boot-recovery.img
+!rescue/misc-cleared.img
+# board data / NVM blobs (Samsung's, or regenerable from linux-firmware with
+# bt-work/bdf/mkboard2.py)
+*.bin
+*.elf
+bdwlan.elf*
+
+# ---------------------------------------------------------------------------
+# Re-creatable sources: tools/setup-sources.sh fetches and patches these.
+# linux/, linux-fedora/, uniloader/ are tracked as submodules instead (pinned
+# upstream commit only -- the patches/ and *-work/ dirs still carry the deltas).
+# ---------------------------------------------------------------------------
+initramfs-work/busybox-src/
+initramfs-work/busybox.tar.bz2
+vendor-src/lrzsz-extract/
+vendor-src/lrzsz-build/
+# Samsung GPL source drop -- large, retrievable from opensource.samsung.com
+SM-F926B/Kernel/
+SM-F926B/Platform/
+SM-F926B/Baseband/
+# Stock Fedora image and everything unpacked or staged from it
+*.raw.xz
+rootfs-build/fedora-aarch64/
+rootfs-work/fedora-mobile/
+rootfs-work/modules-stage/
+rootfs-work/adsp-fw/
+rootfs-work/stage/
+rootfs-work/inspect/
+rootfs-work/extract.log
+
+# ---------------------------------------------------------------------------
+# Build outputs
+# ---------------------------------------------------------------------------
+# kbuild (out-of-tree modules)
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+*.dtb
+modules.order
+Module.symvers
+# initramfs
+*.cpio.gz
+*.cpio.gz.*
+initramfs-work/bin/
+initramfs-work/init
+initramfs-work/root/
+initramfs-work/*.spec
+initramfs-work/busybox-build.log
+# misc
+__pycache__/
+*.pyc
+#---
+# Look, we know what I used, I just don't wanna share this one folder.
+.claude/

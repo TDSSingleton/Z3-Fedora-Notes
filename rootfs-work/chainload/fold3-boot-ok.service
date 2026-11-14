@@ -1,0 +1,11 @@
+[Unit]
+Description=Fold 3: confirm that the chainloaded kernel came up
+After=multi-user.target
+
+[Service]
+Type=oneshot
+# Still alive 45 s after reaching multi-user: call this boot good.
+ExecStart=/bin/sh -c 'sleep 45; rm -f /boot/fold3/pending; sync'
+
+[Install]
+WantedBy=multi-user.target

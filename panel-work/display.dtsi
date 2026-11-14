@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Display nodes for sm8350-samsung-q2q (Galaxy Z Fold 3).
+ * UNTESTED, but the rail mapping is now VERIFIED, not guessed: resolved from the
+ * merged post-ABL device tree captured off the device on 2026-11-07
+ * (capture/facts-*/dt/q2q-merged-postabl.dts).
+ *
+ * Nothing here needs new SoC support: qcom,sm8350-dispcc (via dispcc-sm8250.c),
+ * qcom,sm8350-dpu, qcom,sm8350-dsi-ctrl and qcom,sm8350-dsi-phy-5nm are all
+ * upstream, and sm8350.dtsi already describes them. This file only adds the
+ * board-level panel wiring.
+ *
+ * Stage 1 (no DRM at all): use the bootloader framebuffer instead --
+ *   chosen { framebuffer@e4000000 { compatible = "simple-framebuffer";
+ *            reg = <0x0 0xe4000000 0x0 0x2300000>;
+ *            width = <2208>; height = <1768>; stride = <(2208 * 4)>;
+ *            format = "a8r8g8b8"; }; };
+ *   reserved-memory { splash-region@e4000000 { reg = <...>; no-map; }; };
+ * The region MUST be named splash_region or Samsung's bootloader tears the
+ * display down (per the comment in upstream sm8450-samsung-r0q.dts).
+ */
+
+&mdss {
+	status = "okay";
+};
+
+&mdss_dsi0 {
+	vdda-supply = <&vreg_l6b_1p2>;	/* 1.2 V MIPI DSI -- verify against q2q DTS */
+	status = "okay";
+
+	panel@0 {
+		compatible = "samsung,s6e3xa2-amf755ze01";
+		reg = <0>;
+
+		/*
+		 * VERIFIED against the captured merged DT. The S2DOS05 outputs carry
+		 * these regulator-names directly, which is what makes the mapping
+		 * unambiguous:
+		 *   s2dos05-ldo1  regulator-name = "panel_vdd3"  1.5 - 2.0 V
+		 *   s2dos05-buck1 regulator-name = "panel_vddr"  0.85 - 2.1 V
+		 *   s2dos05-ldo4  regulator-name = "panel_vci"   2.7 - 3.775 V
+		 * The panel's own qcom,panel-supply-entries ask for 1.8 / 1.8 / 3.0 V
+		 * (and 1.6 V on vddr in LPM, via samsung,lpm-power-control-*).
+		 */
+		vdd3-supply = <&s2dos05_ldo1>;	/* panel_vdd3, 1.8 V logic / VDDI */
+		vddr-supply = <&s2dos05_buck1>;	/* panel_vddr, 1.8 V (1.6 V in LPM) */
+		vci-supply  = <&s2dos05_ldo4>;	/* panel_vci,  3.0 V, 10 ms settle */
+
+		reset-gpios    = <&tlmm 14 GPIO_ACTIVE_LOW>;
+		mipi-sel-gpios = <&tlmm 97 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-0 = <&panel_active>;
+		pinctrl-1 = <&panel_suspend>;
+		pinctrl-names = "default", "sleep";
+
+		port {
+			endpoint {
+				remote-endpoint = <&mdss_dsi0_out>;
+			};
+		};
+	};
+};
+
+&mdss_dsi0_out {
+	remote-endpoint = <&panel_in>;
+	data-lanes = <0 1 2 3>;
+};
+
+&mdss_dsi0_phy {
+	vdds-supply = <&vreg_l5b_0p88>;	/* 0.88 V -- verify */
+	status = "okay";
+};
+
+/*
+ * The display PMIC sits on a BITBANGED i2c-gpio bus, not a QUP controller --
+ * verified from the captured merged DT (node path: i2c@52 / s2dos05_pmic@60).
+ * The camera PMIC (s2mpb02 @0x59) shares the same bus; it is out of scope.
+ *
+ * TLMM 76 = SDA, TLMM 77 = SCL, 2 us delay.
+ */
+disp_pmic_i2c: i2c-gpio-disp {
+	compatible = "i2c-gpio";
+	sda-gpios = <&tlmm 76 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	scl-gpios = <&tlmm 77 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	i2c-gpio,delay-us = <2>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/*
+	 * CONFIG_REGULATOR_S2DOS05 is already upstream. Check its binding for the
+	 * expected child node names before trusting the labels below -- the
+	 * downstream names are s2dos05-ldo1..4 / s2dos05-buck1.
+	 */
+	pmic@60 {
+		compatible = "samsung,s2dos05-pmic";
+		reg = <0x60>;
+
+		regulators {
+			s2dos05_ldo1: ldo1 {
+				regulator-name = "panel_vdd3";
+				regulator-min-microvolt = <1500000>;
+				regulator-max-microvolt = <2000000>;
+				regulator-boot-on;
+			};
+
+			s2dos05_ldo4: ldo4 {
+				regulator-name = "panel_vci";
+				regulator-min-microvolt = <2700000>;
+				regulator-max-microvolt = <3775000>;
+				regulator-boot-on;
+			};
+
+			s2dos05_buck1: buck1 {
+				regulator-name = "panel_vddr";
+				regulator-min-microvolt = <850000>;
+				regulator-max-microvolt = <2100000>;
+				regulator-boot-on;
+			};
+		};
+	};
+};
+
+/*
+ * Cover panel (S6E3FAB_AMB623ZF01, 832x2268) would hang off &mdss_dsi1 with its
+ * own phy. Deliberately left out until the inner panel works: TE gpio 83,
+ * reset via platform-sec-reset-gpio, esd-irq-gpio1. Its touch controller
+ * (stm,stm_ts on I2C) stays disabled by design -- display-only cover screen.
+ */

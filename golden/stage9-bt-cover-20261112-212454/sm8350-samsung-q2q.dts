@@ -1,0 +1,2124 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Samsung Galaxy Z Fold 3 5G (SM-F926B, codename q2q)
+ * SoC: Qualcomm SM8350 (lahaina)
+ *
+ * STAGE 1: deliberately minimal. Boots to an initramfs with a framebuffer
+ * console and USB gadget, nothing else. UFS, DSI, Wi-Fi, audio and the
+ * remoteprocs all come later -- the point of this file is the smallest thing
+ * that can possibly boot, so that a failure has few candidate causes.
+ *
+ * Modelled on two upstream files:
+ *   sm8350-sony-xperia-sagami.dtsi  -- correct SM8350 rails and PMIC labels
+ *   sm8450-samsung-r0q.dts          -- Samsung conventions (splash_region, USB 2.0)
+ *
+ * Board data was read off the device on 2026-11-07, not guessed:
+ *   /memory             the four ranges ABL itself publishes (11.90 GiB, 12 GB unit)
+ *   reserved-memory     37 regions from the merged post-ABL DT
+ *   framebuffer         cont_splash_region + the S6E3XA2 panel timings
+ *   ro.revision = 9  ->  board DTS revision r08 is authoritative for this unit
+ *
+ * NOT BOOTED. NOT TESTED. See dts-work/README.md.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/sound/qcom,q6afe.h>
+#include <dt-bindings/sound/qcom,q6asm.h>
+
+#include "sm8350.dtsi"
+#include "pm8350.dtsi"
+#include "pm8350c.dtsi"
+#include "pmk8350.dtsi"
+
+/ {
+	model = "Samsung Galaxy Z Fold 3 5G";
+	compatible = "samsung,q2q", "qcom,sm8350";
+	chassis-type = "handset";
+
+	/*
+	 * ABL hands us no command line (uniLoader owns it, and the stock one is
+	 * console=null anyway), so force our own in the kernel config with
+	 * CONFIG_CMDLINE_FORCE.
+	 */
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/*
+		 * The bootloader framebuffer node is GONE as of the display stack
+		 * landing. simpledrm owned it, and simpledrm cannot coexist with
+		 * DPU: it would keep scanning out of XBL's surface while DPU
+		 * reprograms the display controller under it. See the DISPLAY
+		 * section at the end of this file.
+		 *
+		 * If you need the old console-on-the-bootloader-framebuffer path
+		 * back -- e.g. to debug a panel that will not light -- flash
+		 * golden/stage4-gpu-*, which still has it.
+		 */
+	};
+
+	/*
+	 * Explicit memory node. uniLoader carries this DT and ABL never rewrites
+	 * it, so nothing will fill this in for us.
+	 *
+	 * These are the exact four ranges ABL publishes to the stock kernel,
+	 * read out of the merged post-ABL DT:
+	 *   0x080000000 + 0x37500000    893 MiB
+	 *   0x0b7b00000 + 0x01e00000     30 MiB
+	 *   0x0c0000000 + 0x140000000     5 GiB
+	 *   0x200000000 + 0x180000000     6 GiB   = 11.90 GiB total
+	 *
+	 * Cross-checked: /proc/iomem on the stock kernel reports 11.41 GiB usable
+	 * after carve-outs, which is consistent.
+	 *
+	 * (Worth noting: both the Galaxy S22 port and U-Boot's Qualcomm docs warn
+	 * that Samsung bootloaders can emit a bogus or zero-sized memory node.
+	 * On this device ABL's memory node is sane. Its *demura_region_0/1*
+	 * reserved nodes ARE zero-sized, so the warning is not baseless -- it just
+	 * does not apply to /memory here.)
+	 */
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x37500000>,
+		      <0x0 0xb7b00000 0x0 0x01e00000>,
+		      <0x0 0xc0000000 0x1 0x40000000>,
+		      <0x2 0x00000000 0x1 0x80000000>;
+	};
+
+	reserved-memory {
+		/*
+		 * Samsung-specific carve-outs that sm8350.dtsi does not know about.
+		 * The generic Qualcomm regions (hyp, xbl_aop, smem, cpucp_fw,
+		 * cdsp_secure_heap, pil_*, rmtfs, removed, qrtr_shbuf, chan*_shbuf)
+		 * are inherited from sm8350.dtsi unchanged -- verified to match
+		 * lahaina.dtsi's own values, so upstream is already correct for this
+		 * device and must NOT be overridden.
+		 */
+
+		/*
+		 * Naming here is genuinely ambiguous and worth knowing about.
+		 *
+		 * Upstream sm8450-samsung-r0q.dts carries the comment "the bootloader
+		 * will only keep display hardware enabled if this memory region is
+		 * named exactly 'splash_region'" -- and then writes the node as
+		 * "splash-region@b8000000", with a hyphen. It contradicts itself.
+		 * Samsung's own DT on this device uses "splash_region" (underscore, no
+		 * unit address) plus label = "cont_splash_region".
+		 *
+		 * For OUR boot path it does not matter: uniLoader presents itself to
+		 * ABL as a kernel, so ABL never parses this DT at all. The only job
+		 * this node has is stopping Linux from allocating over the framebuffer.
+		 * We keep the underscore (matching both the stated requirement and
+		 * Samsung) and add a unit address so dtc stays quiet.
+		 *
+		 * If we ever boot WITHOUT uniLoader -- e.g. the Galaxy M52 approach of
+		 * injecting a DT into vendor_boot, where ABL does read it -- and the
+		 * display dies, try renaming this to bare "splash_region" first.
+		 */
+		/*
+		 * ADSP. NOT inherited from sm8350.dtsi -- the header comment's
+		 * "pil_* verified to match" was wrong for this one. The merged
+		 * post-ABL DT puts the PIL regions here:
+		 *     pil_adsp    0x85200000 + 0x3000000   (upstream: 0x86100000 + 0x2100000)
+		 *     pil_camera  0x9b800000, pil_video 0x9bd00000,
+		 *     pil_cvp     0x9c200000, pil_slpi  0x9c700000
+		 * i.e. Samsung grew the ADSP down over upstream's camera/video/cvp
+		 * slots and moved those above the modem. The three upstream slots
+		 * are deleted and the ADSP gets the vendor's 48 MiB. Net reserved
+		 * memory is unchanged (0x85200000-0x88200000 was all no-map before).
+		 *
+		 * camera/video/cvp/slpi are NOT re-declared at Samsung's addresses:
+		 * nothing loads them, and 0x9bb00000 is where uniLoader relocates
+		 * the kernel payloads. Upstream's pil_slpi_mem (0x88200000) stays,
+		 * unused.
+		 */
+		/delete-node/ memory@85200000;
+		/delete-node/ memory@85700000;
+		/delete-node/ memory@85c00000;
+		/delete-node/ memory@86100000;
+
+		pil_adsp_mem: memory@85200000 {
+			reg = <0x0 0x85200000 0x0 0x3000000>;
+			no-map;
+		};
+
+		/*
+		 * SLPI (sensor hub: the LSM6DSO IMU and friends live behind it).
+		 * slpi.mdt is linked at 0x88200000 and spans exactly 0x1600000
+		 * (22 MiB, measured from its program headers). Upstream's slot
+		 * at 0x88200000 is 0x1500000 and abuts pil_cdsp at 0x89700000,
+		 * so the image cannot fit there -- which is why Samsung moved it.
+		 * Use Samsung's own slot from the merged post-ABL DT.
+		 *
+		 * CONSTRAINT: ABL loads the uniLoader blob at 0x9bb00000 and the
+		 * FDT the kernel keeps using stays inside it, just after the
+		 * Image (0x9ec9d000 with a 47.5 MiB Image). This no-map region
+		 * ends at 0x9dd00000. If the Image ever shrinks below ~34 MiB
+		 * the FDT lands inside it and the boot dies very early.
+		 */
+		/delete-node/ memory@88200000;
+
+		pil_slpi_mem: memory@9c700000 {
+			reg = <0x0 0x9c700000 0x0 0x1600000>;
+			no-map;
+		};
+
+		splash_region: splash_region@e4000000 {
+			reg = <0x0 0xe4000000 0x0 0x2300000>;
+			label = "cont_splash_region";
+			no-map;
+		};
+
+		dfps_data_region@e6300000 {
+			reg = <0x0 0xe6300000 0x0 0x100000>;
+			no-map;
+		};
+
+		/*
+		 * Samsung TrustZone / "Universal Hypervisor" (RKP). Installed by the
+		 * bootloader before any kernel runs, so this memory is occupied no
+		 * matter whose kernel boots. Touching it faults.
+		 */
+		tima_region@b0100000 {
+			reg = <0x0 0xb0100000 0x0 0x100000>;
+			no-map;
+		};
+
+		uh_heap_region@b0200000 {
+			reg = <0x0 0xb0200000 0x0 0x200000>;
+			no-map;
+		};
+
+		uh_guest_region@b0400000 {
+			reg = <0x0 0xb0400000 0x0 0x1800000>;
+			no-map;
+		};
+
+		hdm_region@9fb00000 {
+			reg = <0x0 0x9fb00000 0x0 0x1000>;
+			no-map;
+		};
+
+		/* Where ABL leaves the KASLR seed. */
+		kaslr_region@a0001000 {
+			reg = <0x0 0xa0001000 0x0 0x1000>;
+			no-map;
+		};
+
+		/* Samsung debug areas. Reserved so the kernel does not reuse them. */
+		sec_debug_region@f0000000 {
+			reg = <0x0 0xf0000000 0x0 0x900000>;
+			no-map;
+		};
+
+		ss_plog_region@f0900000 {
+			reg = <0x0 0xf0900000 0x0 0x200000>;
+			no-map;
+		};
+
+		sec_debug_rdx_bootdev@100000000 {
+			reg = <0x1 0x00000000 0x0 0xad00000>;
+			no-map;
+		};
+
+		/*
+		 * ramoops. With no UART, this is the only way to read a panic from
+		 * the *previous* boot, so it is worth having from day one.
+		 * Deliberately NOT no-map: pstore has to be able to map it.
+		 */
+		ramoops_region: ramoops@f0b00000 {
+			compatible = "ramoops";
+			reg = <0x0 0xf0b00000 0x0 0x100000>;
+			/*
+			 * Mirrors Samsung's own ramoops node byte for byte: four
+			 * 256 KiB zones filling the 1 MiB region, and NO ecc-size.
+			 *
+			 * The first version of this node asked for 512/256/128/128
+			 * plus ecc-size = 16. The zones alone already filled the
+			 * region exactly, so the ECC data had nowhere to live and the
+			 * driver did not probe -- /sys/fs/pstore came back empty after
+			 * a run we KNOW executed. Without a UART this is our only
+			 * black box, so it has to actually work.
+			 */
+			console-size = <0x40000>;
+			record-size  = <0x40000>;
+			pmsg-size    = <0x40000>;
+			ftrace-size  = <0x40000>;
+		};
+	};
+
+	vph_pwr: regulator-vph-pwr {
+		compatible = "regulator-fixed";
+		regulator-name = "vph_pwr";
+		regulator-min-microvolt = <3700000>;
+		regulator-max-microvolt = <3700000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+};
+
+/*
+ * Regulators. Minimal on purpose: only the rails the USB HS PHY needs, plus
+ * their parents. Voltages are taken verbatim from upstream
+ * sm8350-sony-xperia-sagami.dtsi -- these are PMIC-level constraints on the
+ * same PMICs at the same rails, so they transfer.
+ */
+&apps_rsc {
+	regulators-0 {
+		compatible = "qcom,pm8350-rpmh-regulators";
+		qcom,pmic-id = "b";
+
+		vdd-s1-supply = <&vph_pwr>;
+		vdd-s2-supply = <&vph_pwr>;
+		vdd-s3-supply = <&vph_pwr>;
+		vdd-s4-supply = <&vph_pwr>;
+		vdd-s5-supply = <&vph_pwr>;
+		vdd-s6-supply = <&vph_pwr>;
+		vdd-s7-supply = <&vph_pwr>;
+		vdd-s8-supply = <&vph_pwr>;
+		vdd-s9-supply = <&vph_pwr>;
+		vdd-s10-supply = <&vph_pwr>;
+		vdd-s11-supply = <&vph_pwr>;
+		vdd-s12-supply = <&vph_pwr>;
+
+		vdd-l1-l4-supply = <&pm8350_s11>;
+		vdd-l2-l7-supply = <&vreg_bob>;
+		vdd-l3-l5-supply = <&vreg_bob>;
+		vdd-l6-l9-l10-supply = <&pm8350_s11>;
+
+		/*
+		 * ARC regulators (not described here):
+		 *   S5 - mx.lvl   S6 - gfx.lvl   S9 - mxc.lvl
+		 */
+
+		/* vdd-wlan-io on the vendor's QCA6490: 1.8V, S10B */
+		pm8350_s10: smps10 {
+			regulator-name = "pm8350_s10";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		pm8350_s11: smps11 {
+			regulator-name = "pm8350_s11";
+			regulator-min-microvolt = <752000>;
+			regulator-max-microvolt = <1000000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		pm8350_s12: smps12 {
+			regulator-name = "pm8350_s12";
+			regulator-min-microvolt = <1224000>;
+			regulator-max-microvolt = <1360000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		/* USB HS PHY vdda33 */
+		pm8350_l2: ldo2 {
+			regulator-name = "pm8350_l2";
+			regulator-min-microvolt = <3072000>;
+			regulator-max-microvolt = <3072000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		/* USB HS PHY vdda-pll */
+		/* UFS PHY PLL. Rail assignment matches sm8350-hdk/mtp/surface-duo2. */
+		pm8350_l6: ldo6 {
+			regulator-name = "vreg_l6b_1p2";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		/* UFS vcc, the device's main 2.96 V rail. */
+		pm8350_l7: ldo7 {
+			regulator-name = "vreg_l7b_2p96";
+			regulator-min-microvolt = <2960000>;
+			regulator-max-microvolt = <2960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		/* UFS vccq + vdd-hba. */
+		pm8350_l9: ldo9 {
+			regulator-name = "vreg_l9b_1p2";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		pm8350_l5: ldo5 {
+			regulator-name = "pm8350_l5";
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <888000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-allow-set-load;
+			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
+						   RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	regulators-1 {
+		compatible = "qcom,pm8350c-rpmh-regulators";
+		qcom,pmic-id = "c";
+
+		vdd-s1-supply = <&vph_pwr>;
+		vdd-s2-supply = <&vph_pwr>;
+		vdd-s3-supply = <&vph_pwr>;
+		vdd-s4-supply = <&vph_pwr>;
+		vdd-s5-supply = <&vph_pwr>;
+		vdd-s6-supply = <&vph_pwr>;
+		vdd-s7-supply = <&vph_pwr>;
+		vdd-s8-supply = <&vph_pwr>;
+		vdd-s9-supply = <&vph_pwr>;
+		vdd-s10-supply = <&vph_pwr>;
+
+		vdd-l1-l12-supply = <&pm8350c_s1>;
+		vdd-l2-l8-supply = <&pm8350c_s1>;
+		vdd-l3-l4-l5-l7-l13-supply = <&vreg_bob>;
+		vdd-l6-l9-l11-supply = <&vreg_bob>;
+		vdd-l10-supply = <&pm8350_s12>;
+		vdd-bob-supply = <&vph_pwr>;
+
+		pm8350c_s1: smps1 {
+			/*
+			 * PINNED to 1.984 V. Generic lahaina-regulators.dtsi
+			 * has 1.8-1.952 V (init 1.88), but the q2q overlay
+			 * replaces the whole node with min = max = init =
+			 * 1984000 (fragment@199, regulator-pm8350c-s1), and
+			 * that is what vdd-wlan-rfa1 is configured to. With a
+			 * range, RPMh left it at 1.808 V -- 176 mV under what
+			 * Samsung runs the QCA6490's 1.9 V RF rail at.
+			 * Since the vendor pins it board-wide, every other
+			 * consumer (the L1/L2/L8/L12 parents) already lives
+			 * with this value on stock.
+			 */
+			regulator-name = "pm8350c_s1";
+			regulator-min-microvolt = <1984000>;
+			regulator-max-microvolt = <1984000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_bob: bob {
+			regulator-name = "vreg_bob";
+			regulator-min-microvolt = <3400000>;
+			regulator-max-microvolt = <3960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
+		};
+
+		/* USB HS PHY vdda18 */
+		pm8350c_l1: ldo1 {
+			regulator-name = "pm8350c_l1";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		/*
+		 * SENSOR RAILS. XBL leaves all three OFF (read back over SPMI:
+		 * EN_CTL 0x00 at 0xc246 / 0xc946 / 0xcc46 -- note the LDO
+		 * peripherals start at 0xc100, so LDOn is at 0xc000 + n*0x100).
+		 * Android's kernel is what turns them on:
+		 *   L2C  1.8 V  "sensor_vdd" -- held by the vendor PIL node
+		 *        (qcom,ssc@5c00000, qcom,active-reg-names) for as long
+		 *        as the SLPI runs
+		 *   L9C  2.9 V  regulator-always-on, no named consumer
+		 *   L12C 1.8 V  regulator-always-on, no named consumer
+		 * With them off the I3C IMU still answers but EVERY I2C sensor
+		 * (ak0991x, ak0997x, lps22hh, stk3a9x, tcs3407 -- SSC buses
+		 * 3/4/5/7) hangs its driver until the SLPI watchdog kills the
+		 * sensor PD: "SNS_SEE_P_x exceeded processing time limit".
+		 * Found by bisecting the registry, one driver at a time.
+		 * mainline's qcom_q6v5_pas has no supply for this, hence
+		 * always-on rather than a consumer.
+		 *
+		 * State of knowledge, 2026-11-12:
+		 *   L2C  on  -> mag, baro, hall, light all work via libssc
+		 *   L12C on  -> boots fine, changes nothing visible
+		 *   L9C on  -> boots fine at an ON-GRID voltage; see below
+		 * Still broken with L2C+L12C (and main-S2MPB02 LDO8 + sub LDO12
+		 * poked on by hand): the stk3a9x proximity driver hangs the
+		 * SLPI, and the LSM6DSO IMU never enumerates.
+		 */
+		pm8350c_l2: ldo2 {
+			regulator-name = "pm8350c_l2";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-always-on;
+		};
+
+		/*
+		 * L9C. Vendor: fixed 2.9 V, regulator-always-on (overlay
+		 * fragment@196); almost certainly the main SX9360 grip sensor's
+		 * supply. Declared at 2.904 V (boots fine, verified), because
+		 * mainline's pmic5_pldo only has an 8 mV grid from 1.504 V and
+		 * 2.900 V is NOT on it. With min = max = 2.9 V the core cannot
+		 * apply the constraint, rpmh_regulator_probe() fails for the
+		 * WHOLE PMIC, and pm8350c_l1 (USB PHY), pm8350c_s1 and vreg_bob
+		 * (UFS VCC's parent) go with it -- which is what the two "L9C
+		 * kills the phone" boots most likely were: no USB, no rootfs,
+		 * black screen. Not a power cut. The PMIC's own VSET reads
+		 * 2.960 V with this vote in place (XBL's preset, and the
+		 * reference boards' value), so something else votes higher.
+		 * RULE: every RPMh LDO voltage must satisfy
+		 * (uV - range_min) % step == 0 for its type in
+		 * drivers/regulator/qcom-rpmh-regulator.c.
+		 */
+		pm8350c_l9: ldo9 {
+			regulator-name = "pm8350c_l9";
+			regulator-min-microvolt = <2904000>;
+			regulator-max-microvolt = <2904000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-always-on;
+		};
+
+		/* L12C: boots fine alone; did not bring the IMU up */
+		pm8350c_l12: ldo12 {
+			regulator-name = "pm8350c_l12";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-always-on;
+		};
+	};
+	/*
+	 * PMR735A, RPMh id "e". Added for Wi-Fi: the QCA6490's VDD_PMU_MX
+	 * comes from S2E, and the antenna switch from L7E. These are RPMh
+	 * rails, so no pmr735a.dtsi include is needed -- only this block.
+	 * Constraints taken from sm8350-hdk / sagami, same PMIC, same rails.
+	 */
+	regulators-2 {
+		compatible = "qcom,pmr735a-rpmh-regulators";
+		qcom,pmic-id = "e";
+
+		vdd-s1-supply = <&vph_pwr>;
+		vdd-s2-supply = <&vph_pwr>;
+		vdd-s3-supply = <&vph_pwr>;
+		vdd-l7-bob-supply = <&vreg_bob>;
+
+		pmr735a_s2: smps2 {
+			/*
+			 * VDD_PMU_MX for the QCA6490, and the vendor's
+			 * vdd-wlan-aon. PINNED, not a range, and that is the
+			 * point: pwrseq-qcom-wcn only ever calls
+			 * regulator_bulk_enable() -- it never requests a
+			 * voltage -- and the regulator core applies a DT
+			 * voltage only when min == max. With a range, this
+			 * rail comes up enabled at whatever RPMh happens to
+			 * have aggregated, which for a rail no bootloader
+			 * touches is not 1.012 V.
+			 *
+			 * 1012000 is the vendor's own value, exactly:
+			 *   lahaina.dtsi qcom,cnss-qca6490@b0000000
+			 *   vdd-wlan-aon-supply = <&S2E>
+			 *   qcom,vdd-wlan-aon-config = <1012000 1012000 0 0 1>
+			 * and it is inside the hardware's range -- vendor
+			 * lahaina-regulators.dtsi constrains S2E to
+			 * 500000-1020000 with init 852000.
+			 *
+			 * The old 950000-976000 was copied from
+			 * sm8350-sony-xperia-sagami, where S2E serves
+			 * something else entirely. It cannot even reach
+			 * 1.012 V, so this rail was capped ~36 mV low.
+			 *
+			 * Safe to pin: &pmr735a_s2 has exactly ONE consumer
+			 * in this file, the wcn6855-pmu's vddpmumx. Compare
+			 * S11B/S1C/S12B, which the vendor also drives for
+			 * WLAN but which are shared with the UFS LDO parents
+			 * and the display vddio here -- deliberately NOT
+			 * touched. Note S10B is already pinned 1.8/1.8 and is
+			 * the one WLAN rail previously reported healthy.
+			 */
+			regulator-name = "pmr735a_s2";
+			regulator-min-microvolt = <1012000>;
+			regulator-max-microvolt = <1012000>;
+		};
+
+		/*
+		 * wlan-ant-switch on the vendor DT (L7E, 2.8V). The upstream
+		 * wcn6855-pmu binding has no supply for it, so nothing would
+		 * ever turn it on -- and with the antenna switch unpowered the
+		 * radio may associate at no useful range. always-on is the
+		 * cheap, harmless way to guarantee it: if it turns out not to
+		 * be the ant switch, an always-on 2.8V LDO costs us nothing.
+		 */
+		pmr735a_l7: ldo7 {
+			regulator-name = "pmr735a_l7";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			regulator-always-on;
+		};
+	};
+
+};
+
+/*
+ * TLMM: reserve EVERY gpio.
+ *
+ * sm8350-tlmm probe is where boot hangs. dyndbg caught it exactly:
+ *   platform f100000.pinctrl: really_probe: probing driver sm8350-tlmm
+ *   <no driver_bound, no "probe of ... returned" -- it never comes back>
+ *
+ * gpiochip_add_data() calls ->get_direction() per line, but only where
+ * gpiochip_line_is_valid() (gpiolib.c:1316). On Samsung devices the secure
+ * world owns some TLMM lines and reading their config register hangs the
+ * bus. gpio-reserved-ranges clears those bits so the read never happens.
+ *
+ * Every other SM8350 board upstream sets this and ours did not:
+ *   sm8350-hdk / sm8350-mtp      <52 8>
+ *   sony-xperia-sagami           <44 4>
+ *   microsoft-surface-duo2       <4 4>, <12 4>, <56 4>, <76 4>
+ *
+ * The real q2q set is unknown, and the values above disagree, so this is
+ * deliberately ALL 204 lines: Stage 1 needs no GPIO whatsoever, and a total
+ * reserve turns "which lines are protected?" into a yes/no question. Once
+ * boot gets past tlmm, bisect this down to the true set.
+ */
+&tlmm {
+	/*
+	 * 203 of 204 lines stay reserved. GPIO 203 is the UFS reset, and every
+	 * upstream SM8350 board that has working UFS drives it:
+	 *   sm8350-hdk / mtp / surface-duo2:  reset-gpios = <&tlmm 203 ...>
+	 * Freeing one line at a time keeps the blanket reserve honest until the
+	 * genuinely TZ-owned set is known.
+	 *
+	 * Freed so far, each for a named reason:
+	 *     5        max77705 interrupt
+	 *     32, 33   qup7 i2c SDA/SCL -- the bus the max77705 sits on.
+	 *              Without these, geni_i2c probes but pinctrl fails:
+	 *                sm8350-tlmm: error -EINVAL: pin-32 (99c000.i2c)
+	 *                geni_i2c 99c000.i2c: Error applying setting
+	 *     203      UFS reset
+	 *     20-23    QUP0 SE4 SPI -- the inner panel's touch controller
+	 *              (20 MISO, 21 MOSI, 22 CLK, 23 CS)
+	 *     165      touch IRQ
+	 *
+	 * 20-23 and 165 are provably NOT TZ-owned: the stock NON-SECURE kernel
+	 * muxes and drives all five for exactly this purpose -- see
+	 * capture/facts-<stamp>/dt/q2q-merged-postabl.dts, nodes
+	 * spi_{mosi,miso,clk}_tsp_active and tsp_int_active.
+	 *
+	 * Everything else stays reserved until the real TZ-owned set is known.
+	 */
+	/*
+	 * Freed for audio (2026-11-12), all plain non-secure TLMM pins in the
+	 * vendor DT: 25 (i2c5 SCL, with 24), 51 (expander irq), 125-128
+	 * (MI2S0 sck/data0/data1/ws), 171/172 (expander i2c-gpio).
+	 */
+	/*
+	 * Freed for the battery limiters (2026-11-12): 8/9 (qup1 i2c, main
+	 * s2asl01 @0x38) and 40/41 (qup9 i2c, sub s2asl01 @0x39). Plain
+	 * non-secure pins in the vendor DT (qupv3_se1/se9_i2c_active), and the
+	 * bootloader already leaves all four muxed to QUP with pull-ups.
+	 */
+	gpio-reserved-ranges = <0 5>, <6 2>, <10 7>, <18 2>, <26 6>, <34 6>,
+			       <42 9>, <52 12>,
+			       <66 2>, <72 4>, <80 2>, <84 10>, <98 27>, <129 24>,
+			       <154 11>, <166 5>, <173 30>;
+
+	/*
+	 * Freed for the inner display, all three taken from the vendor DT
+	 * (lahaina-pinctrl.dtsi + q2q_eur_openx_w00_r08.dts), where they are
+	 * plain TLMM pins muxed from the non-secure world:
+	 *   24  panel reset     (sde_dsi_active, was inside <24 8>)
+	 *   82  panel TE/vsync  (sde_te_active,  was inside <78 16>)
+	 *   97  mipi-sel        (panel_xa2_ze01_mipisel_active, was <97 56>)
+	 * Note the reset pin is 24 (vendor qcom,platform-reset-gpio = 0x18).
+	 * An earlier sketch in panel-work/display.dtsi said 14; that was wrong.
+	 */
+
+	/*
+	 * 94/95/96 (PCIe perst, clkreq, wake) are free and PROVEN SAFE:
+	 * booted with them carved out on 2026-11-11. An earlier boot with
+	 * this exact DTB looked like a TZ hang and was not -- the device
+	 * simply needs the USB cable replugged during first stage before it
+	 * continues, and until then the console backpressure makes it look
+	 * dead. Do not re-reserve these on that evidence.
+	 */
+
+	/*
+	 * <34 42> + <78 87> is the old <34 131> with 76 and 77 carved out:
+	 * they are the bitbanged i2c to the s2dos05 display PMIC, which owns
+	 * the two touch rails. Vendor pin states gpio_i2c_2_sda/scl_default
+	 * mux both to "gpio", so they are TLMM-owned in the vendor DT too --
+	 * but whether TZ also claims them is only provable by booting.
+	 */
+
+	/*
+	 * Inner-display touch (ST FTS9CU80F) on QUP0 SE4.
+	 *
+	 * CS is a plain GPIO, not qup4's native chip select, mirroring the stock
+	 * driver: it holds CS low across an entire spi_message, including the
+	 * inter-transfer delay a register read needs. cs-gpios gets us the same
+	 * behaviour from the SPI core.
+	 */
+	/*
+	 * QCA6490 enable lines. Vendor cnss_wlan_en_active: gpio function,
+	 * drive-strength 16, bias-pull-up, output-high. sw-ctrl is an input
+	 * back from the chip's PMU, so it gets a pull-down and no drive.
+	 */
+	/*
+	 * PCIe0 control pins. Without perst the endpoint is never released
+	 * from reset. gpio95 is NOT a plain GPIO -- clkreq has its own TLMM
+	 * function, pcie0_clkreqn. Pin numbers are the vendor's (perst-gpio
+	 * 0x5e = 94, wake-gpio 0x60 = 96), matching sm8350-hdk.
+	 */
+	pcie0_default_state: pcie0-default-state {
+		perst-pins {
+			pins = "gpio94";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+
+		clkreq-pins {
+			pins = "gpio95";
+			function = "pcie0_clkreqn";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+
+		wake-pins {
+			pins = "gpio96";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	/* Bitbanged i2c to the PCAL6524 GPIO expander (vendor /i2c@53). */
+	exp_i2c_state: exp-i2c-state {
+		pins = "gpio171", "gpio172";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+		input-enable;
+	};
+
+	exp_irq_state: exp-irq-state {
+		pins = "gpio51";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+
+	/*
+	 * MI2S0, the speaker amps' audio bus. Vendor names these pri_tdm_*;
+	 * same four pins, same TLMM functions, whichever framing the DSP uses.
+	 * data1 is SoC -> amps, data0 is the amps' feedback path.
+	 */
+	mi2s0_state: mi2s0-state {
+		sck-pins {
+			pins = "gpio125";
+			function = "mi2s0_sck";
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		ws-pins {
+			pins = "gpio128";
+			function = "mi2s0_ws";
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		data0-pins {
+			pins = "gpio126";
+			function = "mi2s0_data0";
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		data1-pins {
+			pins = "gpio127";
+			function = "mi2s0_data1";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	wlan_en_state: wlan-en-state {
+		pins = "gpio64";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-pull-up;
+	};
+
+	bt_en_state: bt-en-state {
+		pins = "gpio65";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-pull-up;
+	};
+
+	wlan_sw_ctrl_state: wlan-sw-ctrl-state {
+		pins = "gpio153";
+		function = "gpio";
+		bias-pull-down;
+		input-enable;
+	};
+
+	ts_spi_active: ts-spi-active-state {
+		pins = "gpio20", "gpio21", "gpio22";
+		function = "qup4";
+		drive-strength = <6>;
+		bias-disable;
+	};
+
+	ts_cs_active: ts-cs-active-state {
+		pins = "gpio23";
+		function = "gpio";
+		drive-strength = <6>;
+		bias-disable;
+		output-high;
+	};
+
+	/*
+	 * Bitbanged i2c to the s2dos05. Vendor: gpio_i2c_2_sda_default /
+	 * gpio_i2c_2_scl_default -- gpio function, drive-strength 2,
+	 * bias-disable, input-enable. No internal pull: the board has
+	 * external pull-ups, which open-drain bitbanging requires.
+	 */
+	/*
+	 * Bluetooth UART = QUP18 (vendor qupv3_se18_4uart @ 0x890000), 4-wire.
+	 * GENI lane order: 68 CTS, 69 RTS, 70 TX, 71 RX. sm8350.dtsi's own
+	 * qup_uart18_default only lists 68/69, which cannot be a working
+	 * 2-wire UART on these lanes, so it is replaced rather than extended.
+	 * 68-71 came out of gpio-reserved-ranges for this; the stock kernel
+	 * muxes all four to qup18 from the non-secure world.
+	 */
+	bt_uart_state: bt-uart-state {
+		cts-pins {
+			pins = "gpio68";
+			function = "qup18";
+			bias-bus-hold;
+		};
+
+		rts-tx-pins {
+			pins = "gpio69", "gpio70";
+			function = "qup18";
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		rx-pins {
+			pins = "gpio71";
+			function = "qup18";
+			bias-pull-up;
+		};
+	};
+
+	/* main S2MPB02 bus, vendor /i2c@51: plain HLOS gpios, bias-disable */
+	main_pmic_i2c: main-pmic-i2c-state {
+		pins = "gpio78", "gpio79";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	sub_pmic_i2c_sda: sub-pmic-i2c-sda-state {
+		pins = "gpio76";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+		input-enable;
+	};
+
+	sub_pmic_i2c_scl: sub-pmic-i2c-scl-state {
+		pins = "gpio77";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+		input-enable;
+	};
+
+	ts_int_active: ts-int-active-state {
+		pins = "gpio165";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+		input-enable;
+	};
+
+	/*
+	 * Inner display. Vendor states sde_dsi_active (reset) and
+	 * sde_te_active (TE) in lahaina-pinctrl.dtsi, and
+	 * panel_xa2_ze01_mipisel_active in the board DTS.
+	 *
+	 * TE is NOT a gpio consumer: it is muxed to the mdp_vsync function so
+	 * the panel's tear-effect line reaches the DPU's INTF directly in
+	 * hardware. A command-mode panel has no periodic timing of its own --
+	 * the host pushes a frame when TE says the scanout has wrapped -- so
+	 * without this mux there is no vsync at all.
+	 */
+	panel_te_active: panel-te-active-state {
+		pins = "gpio82";
+		function = "mdp_vsync";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+	/*
+	 * Cover panel (S6E3FAB). TE is TLMM 83 = the SECONDARY mdp_vsync input
+	 * (vendor qcom,panel-te-source = <1>); reset is TLMM 17 (Samsung node:
+	 * qcom,platform-reset-gpio = <&tlmm 0x11 0>). Both freed from
+	 * gpio-reserved-ranges for this.
+	 */
+	cover_te_active: cover-te-active-state {
+		pins = "gpio83";
+		function = "mdp_vsync";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+	cover_reset_active: cover-reset-active-state {
+		pins = "gpio17";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-disable;
+	};
+
+	panel_mipisel_active: panel-mipisel-active-state {
+		pins = "gpio97";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+	};
+};
+
+/*
+ * Battery profile. This is the only thing the mainline max77705 charger reads
+ * from DT, and it is deliberately CONSERVATIVE.
+ *
+ * Samsung's own q2q values, for reference:
+ *     battery,chg_float_voltage   = 4440 mV
+ *     battery,max_charging_current= 3000 mA
+ *     battery,battery_full_capacity = 4500 mAh
+ *     battery,chg_high_temp       = 49.0 C  (recovery 47.0 C)
+ *
+ * We use 4.2 V instead of 4.44 V. max77705_charger_initialize() feeds
+ * voltage-max-design-microvolt straight into max77705_set_float_voltage()
+ * (drivers/power/supply/max77705_charger.c:562), so this caps the pack at
+ * roughly 75-80% of its rated capacity. For a device that mostly sits on a
+ * bench that is strictly better: far from the cell's stress region, and much
+ * kinder to a battery we cannot replace.
+ *
+ * Charge CURRENT is not taken from DT at all -- the driver leaves the chip at
+ * its 450 mA hardware default, which is 0.1C into a 4500 mAh pack. Gentle,
+ * and well under the 500 mA-1 A band we agreed on.
+ *
+ * Both cells stay connected and no limiter is touched.
+ */
+/*
+ * Samsung S2DOS05 display sub-PMIC, on a bitbanged i2c bus (TLMM 76/77).
+ *
+ * Why this is needed for touch: the FTS9CU80F's two rails come from this
+ * chip, not from RPMh. Without it the first SPI read of the device ID came
+ * back 00 00 00 00 00 -- the controller clocked out fine, MISO just never
+ * answered, because the part was unpowered:
+ *   fts9cu80f spi0.0: device id 00 00 00 00 00 (chip_id 000000)
+ *   fts9cu80f spi0.0: error -ENODEV: no FTS9CU80F found
+ *
+ * Nothing had to be written: drivers/regulator/s2dos05-regulator.c and the
+ * sec-i2c MFD are both already in mainline, and
+ * sdm845-samsung-starqltechn.dts drives the identical chip the same way --
+ * child nodes must be named exactly ldo1..ldo4/buck, since the driver uses
+ * .of_match_full_name on those names under a "regulators" node.
+ *
+ * The bus is i2c-gpio because the vendor's is: /i2c@52 is compatible =
+ * "i2c-gpio" with gpios = <&tlmm 76 0 &tlmm 77 0>. No QUP is involved, so
+ * nothing here depends on GENI. Built in, not a module: with
+ * deferred_probe_timeout=1 a late module can never satisfy a deferred
+ * -EPROBE_DEFER from a regulator consumer.
+ *
+ * ldo1/ldo4/buck are the inner panel's vdd3/vci/vddr. XBL left them on and
+ * our framebuffer is living off them, so they are declared always-on with
+ * NO voltage constraints -- enough to stop anything disabling them, while
+ * never reprogramming a voltage out from under a display we cannot
+ * re-initialise.
+ */
+/*
+ * MAIN Samsung S2MPB02, vendor /i2c@51 (i2c-gpio, TLMM 78 SDA / 79 SCL),
+ * chip at 0x59. Its LDO8 is the 1.8 V "dvdd" of the sensors (vendor
+ * digital_hall dvdd-supply, regulator-always-on + boot-on). The bus is
+ * declared BARE on purpose: no child node, so no driver binds and nothing
+ * here can change a rail. It exists so the chip can be inspected and poked
+ * with i2cget/i2cset -f while working out which rail the IMU needs.
+ */
+/ {
+	i2c-main-pmic {
+		compatible = "i2c-gpio";
+		sda-gpios = <&tlmm 78 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&tlmm 79 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		i2c-gpio,delay-us = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_pmic_i2c>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+/ {
+	i2c_sub_pmic: i2c-sub-pmic {
+		compatible = "i2c-gpio";
+		sda-gpios = <&tlmm 76 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&tlmm 77 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		i2c-gpio,delay-us = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sub_pmic_i2c_sda>, <&sub_pmic_i2c_scl>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pmic@60 {
+			compatible = "samsung,s2dos05";
+			reg = <0x60>;
+
+			regulators {
+				s2dos05_ldo1: ldo1 {
+					regulator-name = "panel_vdd3";
+					regulator-always-on;
+				};
+
+				s2dos05_ldo2: ldo2 {
+					regulator-name = "tsp_io";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-enable-ramp-delay = <12000>;
+					regulator-boot-on;
+				};
+
+				s2dos05_ldo3: ldo3 {
+					regulator-name = "tsp_avdd";
+					regulator-min-microvolt = <3000000>;
+					regulator-max-microvolt = <3000000>;
+					regulator-enable-ramp-delay = <12000>;
+					regulator-boot-on;
+				};
+
+				s2dos05_ldo4: ldo4 {
+					regulator-name = "panel_vci";
+					regulator-always-on;
+				};
+
+				s2dos05_buck: buck {
+					regulator-name = "panel_vddr";
+					regulator-always-on;
+				};
+			};
+		};
+
+		/*
+		 * Samsung S2MPB02, "sub" instance. Vendor: /i2c@52/s2mpb02_pmic@59.
+		 * THIS is where the QCA6490's core rails come from on q2q -- the
+		 * overlay (fragment@189) re-points the generic lahaina cnss
+		 * supplies here:
+		 *   vdd-wlan-aon + vdd-wlan-dig -> BUCK1, 1.0125 V
+		 *   vdd-wlan-rfa2               -> BUCK2, 1.35 V
+		 * With them off the chip is electrically absent and the PCIe link
+		 * never trains (LnkSta 0x1011); with them on it trains at once.
+		 *
+		 * No mainline driver: wifi-work/s2mpb02-regulator.c. It registers
+		 * ONLY the regulators described here; every other LDO stays as
+		 * the bootloader left it (L6/L10/L15 are on for the cover panel).
+		 */
+		pmic@59 {
+			compatible = "samsung,s2mpb02";
+			reg = <0x59>;
+
+			regulators {
+				s2mpb02_sub_b1: buck1 {
+					regulator-name = "wlan_aon_dig";
+					regulator-min-microvolt = <1012500>;
+					regulator-max-microvolt = <1012500>;
+				};
+
+				s2mpb02_sub_b2: buck2 {
+					regulator-name = "wlan_rfa2";
+					regulator-min-microvolt = <1350000>;
+					regulator-max-microvolt = <1350000>;
+				};
+
+				/*
+				 * "subsensor_vdd": the LSM6DSO IMUs' supply.
+				 * Vendor qcom,ssc@5c00000 holds it while the
+				 * SLPI runs; XBL leaves it off. Proven by
+				 * toggling: off -> "No 'accel' sensor
+				 * available", on -> accel data, and the
+				 * stk3a9x proximity driver stops hanging the
+				 * SLPI. always-on because mainline's PAS
+				 * driver has no supply to hang it on.
+				 */
+				/*
+				 * Cover panel rails. XBL leaves all three ON
+				 * (L6 0xac, L10 0xb0, L15 0xe0), so, as with
+				 * the inner panel's s2dos05 rails: always-on
+				 * and NO voltage constraints -- nothing may
+				 * reprogram or drop them.
+				 */
+				s2mpb02_sub_l6: ldo6 {
+					regulator-name = "panel_vddr_sub";
+					regulator-always-on;
+				};
+
+				s2mpb02_sub_l10: ldo10 {
+					regulator-name = "panel_vdd3_sub";
+					regulator-always-on;
+				};
+
+				s2mpb02_sub_l15: ldo15 {
+					regulator-name = "panel_vci_sub";
+					regulator-always-on;
+				};
+
+				s2mpb02_sub_l9: ldo9 {
+					regulator-name = "subsensor_vdd";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
+				};
+			};
+		};
+	};
+};
+
+/ {
+	battery: battery {
+		compatible = "simple-battery";
+		voltage-max-design-microvolt = <4200000>;
+		voltage-min-design-microvolt = <3400000>;
+		charge-full-design-microamp-hours = <4500000>;
+	};
+};
+
+/*
+ * Ask SCM to deactivate the bootloader's secure watchdog.
+ *
+ * The APSS watchdog block is unreachable by MMIO (see below), but Samsung's
+ * own kernel never touches it directly either -- it goes through TrustZone:
+ *   drivers/soc/qcom/qcom_wdt_core.c:550  qcom_scm_sec_wdog_deactivate()
+ *   SVC 0x01 (BOOT) / CMD 0x07 / owner SIP / args[0] = 1
+ *
+ * Mainline's qcom_scm has no 0x07 command at all, so it has been patched in
+ * (patches/0001-qcom_scm-sec-wdog-deactivate.patch). This property opts us in.
+ */
+&{/firmware/scm} {
+	qcom,disable-sec-wdog;
+};
+
+/*
+ * NO watchdog node. The APSS watchdog block at 0x17c10000 is UNREACHABLE from
+ * the non-secure world on this device.
+ *
+ * Proven twice, from two different execution contexts:
+ *   - uniLoader late_init read/wrote 0x17c10008 in bare metal: attempts 7 and
+ *     8 died there with a blackscreen, before Linux ever started.
+ *   - qcom_wdt_probe's readl() of WDT_STS/WDT_EN took a synchronous external
+ *     abort (ESR 0000000096000010, DFSC 0x10 -- the bus refused it, the MMU
+ *     mapping was fine), panicking init:
+ *         pc : qcom_wdt_probe+0x338/0x3cc
+ *         Kernel panic - not syncing: Attempted to kill init!
+ *
+ * Samsung's downstream DT does carry qcom,wdt@17c10000 and their kernel uses
+ * it, so the block is presumably unlocked for them by firmware we do not
+ * invoke. Until that handshake is understood, nothing may touch this address.
+ *
+ * Consequence: the watchdog stays armed and we cannot pet it. Stage 1 has to
+ * complete inside its bite window.
+ */
+
+/*
+ * UFS stays off for Stage 1. Note upstream sagami also disables it, so SM8350
+ * UFS is not a solved problem in mainline yet (a patch enabling it on sagami
+ * was under review as of 2026). We boot from an initramfs instead, which
+ * removes storage from the list of things that can go wrong on first boot.
+ */
+/*
+ * max77705 PMIC / charger, on qupv3_se7_i2c (i2c@99c000) per the merged
+ * post-ABL DT we pulled off the device. Two slave addresses on one chip:
+ * 0x66 is the MFD, 0x69 is the charger. IRQ is TLMM GPIO 5, which is why
+ * that line had to come out of gpio-reserved-ranges above.
+ */
+/*
+ * The QUP wrapper must be enabled too. Enabling &i2c7 alone does nothing:
+ * i2c@99c000 lives inside geniqup@9c0000, and a disabled parent means the
+ * child node is never instantiated at all -- no platform device, no i2c bus,
+ * no max77705. Cost me a boot to notice.
+ */
+&qupv3_id_0 {
+	status = "okay";
+};
+
+&i2c7 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	pmic@66 {
+		compatible = "maxim,max77705";
+		reg = <0x66>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+	};
+
+	/*
+	 * Fuel gauge. Mainline's max17042_battery already lists
+	 * "maxim,max77705-battery", so no new driver is needed.
+	 *
+	 * NOT read-only without the shunt property, despite what this comment
+	 * used to claim. max17042_init_chip() is indeed skipped (no
+	 * maxim,config-data), but probe has a second write path: with no
+	 * sense resistor described it does
+	 *     CGAIN = 0, MiscCFG = 0x0003, LearnCFG = 0x0007
+	 * i.e. it switches the gauge to voltage-only mode. The gauge is
+	 * battery-backed, so that survived every reboot: Current read 0,
+	 * capacity came from VFSOC (103%), and stock's reset workaround had
+	 * already thrown the learned capacity away once.
+	 *
+	 * Stock values, from the 2026-11-07 capture's [FG] register dumps,
+	 * were restored by hand on 2026-11-11:
+	 *     CGAIN 0x0400 (0x03fb while charging), MiscCFG 0x3870,
+	 *     LearnCFG 0x2476
+	 *
+	 * The shunt is 5 mOhm: vendor fuelgauge,fg_resistor = <2> (10 mOhm
+	 * / 2) and "1.5625uV/0.005Ohm(Rsense) = 312.5uA" in the driver.
+	 * Describing it stops the clobbering, exposes current_now, switches
+	 * capacity to RepSOC and corrects the charge_* scaling (x2).
+	 *
+	 * Still written at probe: SALRT_Th = 0xff00 (alerts off, because no
+	 * irq is wired; stock had 0xff01). Benign. FullSOCThr is untouched
+	 * (reads 0x5900, same as stock).
+	 *
+	 * No interrupt wired: the ALRT pin would mean freeing another GPIO,
+	 * and polling is perfectly adequate for a percentage readout.
+	 *
+	 * 0x36 is the Maxim ModelGauge convention (8-bit 0x6c >> 1), matching
+	 * how the charger sits at 0x69 (8-bit 0xd2 >> 1).
+	 */
+	fuel-gauge@36 {
+		compatible = "maxim,max77705-battery";
+		reg = <0x36>;
+		monitored-battery = <&battery>;
+		shunt-resistor-micro-ohms = <5000>;
+	};
+
+	/*
+	 * Charger node kept but DISABLED. CONFIG_CHARGER_MAX77705 is off too,
+	 * so this binds nothing either way -- it is here so re-enabling is a
+	 * one-line change once the s2asl01 limiters can be read. See the
+	 * config fragment for why.
+	 */
+	charger@69 {
+		compatible = "maxim,max77705-charger";
+		reg = <0x69>;
+		monitored-battery = <&battery>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
+		status = "disabled";
+	};
+};
+
+/*
+ * Buses of the two S2ASL01 battery current limiters. Vendor:
+ *   qupv3_se1_i2c (i2c@984000) / s2asl01-limiter-main@38
+ *   qupv3_se9_i2c (i2c@a84000) / s2asl01-limiter-sub@39  (+ sx9360 grip @28)
+ *
+ * Deliberately NO client nodes: nothing binds, nothing writes. The buses
+ * exist so the limiters can be read with i2c-dev, to learn whether they keep
+ * stock's configuration under our kernel before any charger work.
+ *
+ * The enable/detect GPIOs (86, 74, 167, 131, 132) are NOT claimed anywhere and
+ * must stay that way: the bootloader leaves 86 and 167 driven low (= cells
+ * connected), measured 2026-11-12.
+ *
+ * i2c9 lives in the second QUP wrapper, which nothing else used so far.
+ * gpi_dma1 is left disabled on purpose (one delta): if SE9 turns out to be
+ * FIFO-disabled like spi4, i2c9 will defer with "Failed to get tx DMA ch" and
+ * that is the next step, not a guess to bundle in now.
+ */
+&i2c1 {
+	status = "okay";
+	clock-frequency = <100000>;
+};
+
+&qupv3_id_1 {
+	status = "okay";
+};
+
+&i2c9 {
+	status = "okay";
+	clock-frequency = <100000>;
+};
+
+/*
+ * UFS. Off for Stage 1; on now because it is the last piece of a hands-free
+ * flash loop -- with storage the shell can dd a new boot.img onto the boot
+ * partition itself, and "poweroff -f" power-cycles straight into it (VBUS
+ * present makes ABL power the device back on). No buttons, no Download Mode.
+ *
+ * Supplies and the reset line follow sm8350-hdk / mtp / surface-duo2, which
+ * all agree. Sony sagami disables UFS, so it is no help here.
+ */
+&ufs_mem_hc {
+	status = "okay";
+
+	reset-gpios = <&tlmm 203 GPIO_ACTIVE_LOW>;
+
+	vcc-supply = <&pm8350_l7>;
+	vcc-max-microamp = <800000>;
+	vccq-supply = <&pm8350_l9>;
+	vccq-max-microamp = <900000>;
+	vdd-hba-supply = <&pm8350_l9>;
+};
+
+&ufs_mem_phy {
+	status = "okay";
+
+	vdda-phy-supply = <&pm8350_l5>;
+	vdda-pll-supply = <&pm8350_l6>;
+};
+
+/*
+ * USB 2.0, peripheral only -- the same deliberate reduction upstream
+ * sm8450-samsung-r0q.dts makes. Gives us a USB gadget (and therefore networking
+ * and a shell) without bringing up the SS PHY.
+ */
+&usb_1 {
+	/*
+	 * Glue node (qcom,sm8350-dwc3). With no SuperSpeed PHY in play, the glue
+	 * must take UTMI as its pipe clock.
+	 */
+	qcom,select-utmi-as-pipe-clk;
+
+	status = "okay";
+};
+
+&usb_1_dwc3 {
+	/*
+	 * Core node (snps,dwc3). phys/phy-names live HERE, not on the glue --
+	 * sm8350.dtsi declares them on this node. Overriding them on &usb_1
+	 * silently does nothing and leaves usb3-phy attached, which is exactly
+	 * the mistake the first draft of this file made.
+	 *
+	 * (Upstream sm8450-samsung-r0q.dts sets dr_mode, maximum-speed and phys
+	 * on &usb_1. Upstream sm8350-sony-xperia-sagami.dtsi sets dr_mode on
+	 * &usb_1_dwc3. We follow sagami: same SoC, and it matches where
+	 * sm8350.dtsi actually declares the properties.)
+	 */
+	dr_mode = "peripheral";
+	maximum-speed = "high-speed";
+
+	/* drop the SuperSpeed PHY */
+	phys = <&usb_1_hsphy>;
+	phy-names = "usb2-phy";
+};
+
+&usb_1_hsphy {
+	vdda-pll-supply = <&pm8350_l5>;
+	vdda18-supply = <&pm8350c_l1>;
+	vdda33-supply = <&pm8350_l2>;
+
+	status = "okay";
+};
+
+/*
+ * GPI DMA engine for the QUP0 wrapper. Upstream sm8350.dtsi ships gpi_dma0 as
+ * status = "disabled", so the platform device is never created at all --
+ * /sys/bus/platform/devices/900000.dma-controller simply does not exist and
+ * loading gpi.ko registers no channels (/sys/class/dma stays empty).
+ *
+ * spi@990000 is NOT optional about this. Its hardware FIFO is disabled
+ * (GENI_IF_DISABLE_RO & FIFO_IF_DISABLE), so spi-geni-qcom takes the
+ * fifo_disable == 1 path and requires a GPI channel; without one it fails with
+ *   platform 990000.spi: deferred probe pending: geni_spi: Failed to get tx DMA ch
+ * and no SPI bus is created, so the touchscreen never appears. Deleting the
+ * dmas property would NOT help for the same reason.
+ *
+ * Its IOMMU is apps_smmu, which does work here:
+ *   arm-smmu 15000000.iommu: SMMUv2 ... 75 context banks
+ *   platform 9c0000.geniqup: Adding to iommu group 0
+ * (The arm-smmu probe failure in the log is 3da0000, the GPU's, unrelated.)
+ */
+&gpi_dma0 {
+	status = "okay";
+};
+
+/*
+ * Inner-display touchscreen: ST FTS9CU80F on spi@990000 (QUP0 SE4 = spi4).
+ *
+ * The parent wrapper qupv3_id_0 is already enabled above for i2c7, which is
+ * required -- a disabled geniqup parent means this child is never
+ * instantiated at all.
+ *
+ * Nothing in mainline claims "st,fts9cu80f": mainline's only ST touch driver
+ * is stmfts, which is I2C-only and for the older FTS3BD60/FTM4 generation. So
+ * this node deliberately binds NO driver yet. That is the point for now: the
+ * SPI device appears, the boot log stays clean, and the controller can be
+ * probed from userspace by rebinding it to spidev
+ *
+ *     echo spidev > /sys/bus/spi/devices/spi*.0/driver_override
+ *
+ * which works because spidev_probe() only applies its compatible whitelist
+ * when device_get_match_data() returns non-NULL. Our own driver then arrives
+ * as a module and is iterated over the serial console, no reflash per attempt.
+ *
+ * Protocol, decoded from Samsung's stm_spi driver in the GPL drop:
+ *   write: cmds A0/A2/A4/A7/FA/FB/D0 go out as-is, everything else gets a
+ *          0xC0 prefix
+ *   read:  3-byte header [0xD1][addr_hi][addr_lo], full duplex, 10us settle,
+ *          payload starts 4 bytes in
+ *   event: 16 bytes, command 0x87, 12-bit X/Y, touch id in byte 0
+ */
+&spi4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&ts_spi_active>, <&ts_cs_active>, <&ts_int_active>;
+	cs-gpios = <&tlmm 23 GPIO_ACTIVE_LOW>;
+
+	touchscreen@0 {
+		compatible = "st,fts9cu80f";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		interrupts-extended = <&tlmm 165 IRQ_TYPE_LEVEL_LOW>;
+
+		/*
+		 * vendor: tsp_io_ldo-supply = s2dos05-ldo2 (1.8V digital/IO)
+		 *         tsp_avdd_ldo-supply = s2dos05-ldo3 (3.0V analog)
+		 * Same split as sdm845-samsung-starqltechn's s6sy761 touch,
+		 * which names them vdd and avdd; follow that.
+		 */
+		vdd-supply = <&s2dos05_ldo2>;
+		avdd-supply = <&s2dos05_ldo3>;
+
+		/*
+		 * No touchscreen-size-x/y on purpose. The controller reports
+		 * its own coordinate space (4095x4095, with a 34x42 channel
+		 * grid) via command 0x23, and the driver reads it, so naming a
+		 * size here would only add a second source of truth that can
+		 * drift from the hardware.
+		 *
+		 * Orientation, measured on 2026-11-11 with drag gestures:
+		 * the bootloader's framebuffer is LANDSCAPE (2208x1768) on a
+		 * physically portrait panel, so touch is transposed relative
+		 * to the image. Dragging left->right across the display moved
+		 * raw Y upward, and dragging top->bottom moved raw X downward:
+		 *
+		 *     display x =       raw y
+		 *     display y = max - raw x
+		 *
+		 * touchscreen_apply_prop_to_x_y() inverts in raw space first
+		 * and swaps afterwards, so that is inverted-x plus swapped-x-y
+		 * -- NOT inverted-y, which would mirror it.
+		 *
+		 * Corner taps could not establish this: with a landscape image
+		 * on a portrait panel, "top-left" means two different corners
+		 * depending on which one you mean, and no rotation at all fits
+		 * the tap sequence they produced. Drags carry their own
+		 * direction and are immune to that.
+		 */
+		touchscreen-swapped-x-y;
+		touchscreen-inverted-x;
+	};
+};
+
+/*
+ * PMK8350: power key, volume-down and the RTC.
+ *
+ * CONFIG_INPUT_PM8941_PWRKEY is already =y and RTC_DRV_PM8XXX=m, so this is a
+ * pure DTS change -- no kernel config work.
+ *
+ * Key codes are the vendor's, read off pon_hlos@1300 in the merged post-ABL
+ * DT rather than assumed:
+ *   qcom,pon_1  pon-type 0 (KPDPWR)  linux,code = 0x74 = KEY_POWER
+ *   qcom,pon_2  pon-type 1 (RESIN)   linux,code = 0x72 = KEY_VOLUMEDOWN
+ * Upstream's pmk8350-pwrkey/-resin drivers default to exactly those, so no
+ * linux,code override is needed.
+ *
+ * Note what this implies for suspend: the argument for the staged
+ * CONFIG_SUSPEND=n was that there is NO wakeup source, so a suspend can never
+ * be undone. pon_pwrkey is that wakeup source. Nothing here enables suspend
+ * (the sleep targets stay masked and powerdevil is configured not to ask), but
+ * it makes the question testable -- deliberately, and never by accident.
+ *
+ * logind is already configured HandlePowerKey=poweroff, so once this binds a
+ * press cleanly powers the device down instead of doing nothing.
+ */
+&pon_pwrkey {
+	status = "okay";
+};
+
+&pon_resin {
+	/*
+	 * REQUIRED, not cosmetic. pmk8350.dtsi gives pwrkey a linux,code but
+	 * gives resin none, and pm8941_pwrkey_probe() falls back to KEY_POWER
+	 * for ANY node missing it. Enabling resin bare would therefore make
+	 * volume-down report KEY_POWER -- which, with our logind
+	 * HandlePowerKey=poweroff, powers the phone off. Every upstream board
+	 * that enables resin sets this. 0x72 in the vendor DT = KEY_VOLUMEDOWN.
+	 */
+	linux,code = <KEY_VOLUMEDOWN>;
+	status = "okay";
+};
+
+/*
+ * RTC, read-only for now.
+ *
+ * Without an "offset" nvmem cell (or UEFI vars, which we have none of)
+ * pm8xxx_rtc_update_offset() returns -ENODEV, so the time cannot be *set*
+ * unless the counter itself is writable. `allow-set-time` makes the driver
+ * write the counter directly; on many Qualcomm PMICs that register is
+ * TZ-owned and the write is dropped, so this is an experiment, not a
+ * guarantee. It is harmless either way: the write path is only reached when
+ * userspace actually sets the time, and nothing here does so on its own (no
+ * network, so timesyncd never fires).
+ *
+ * The win that matters does not depend on it -- READING a sane boot time
+ * fixes the stale clock that made PAM reject plasma-setup with "password
+ * changed in the future". See HANDBOOK section 13.
+ */
+&pmk8350_rtc {
+	status = "okay";
+
+	/*
+	 * NO allow-set-time. Tried it on 2026-11-11 and the RTC control
+	 * register is TZ-owned, so the write never lands:
+	 *   spmi spmi-0: disallowed SPMI write to sid=0, addr=0x6146
+	 *   hwclock: ioctl(RTC_SET_TIME) ... Operation not permitted
+	 * (0x6146 is pmk8350_regs.ctrl.)
+	 *
+	 * Leaving it in would be worse than useless: with allow_set_time set,
+	 * pm8xxx_rtc_set_time() takes the direct-write path and never consults
+	 * an offset cell, so it would also defeat the proper fix.
+	 *
+	 * Reading works, but the counter is not Android's clock -- it holds
+	 * ~235000 s (2.7 days), counting from its own last reset, so the boot
+	 * clock still needs setting from elsewhere. The upstream answer is an
+	 * "offset" nvmem cell in a PMIC SDAM (see sc8280xp boards); that needs
+	 * one SDAM enabled and its writability proven, which is its own
+	 * experiment. Until then the clock is read-only and wrong.
+	 */
+};
+
+/*
+ * Volume-up. Unlike power and volume-down (PMK8350 PON, above) this one is a
+ * plain GPIO key on PM8350 gpio6, active low with the PMIC's own pull-up.
+ * From gpio_keys/vol_up + key_vol_up_default in the merged post-ABL DT:
+ *   gpios = <&pm8350_gpios 6 1>, linux,code = 0x73 (KEY_VOLUMEUP),
+ *   debounce 15 ms, bias-pull-up, power-source = <1>, input-enable.
+ * XBL already leaves the pin in exactly that state (debugfs: "in high normal
+ * vin-1 pull-up 30uA"), so the pinctrl state restates it rather than changes
+ * it. No wakeup-source: suspend is disabled on this device.
+ */
+/ {
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default>;
+
+		key-volume-up {
+			label = "volume_up";
+			gpios = <&pm8350_gpios 6 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEUP>;
+			debounce-interval = <15>;
+		};
+	};
+};
+
+&pm8350_gpios {
+	key_vol_up_default: key-vol-up-default-state {
+		pins = "gpio6";
+		function = "normal";
+		input-enable;
+		bias-pull-up;
+		power-source = <1>;
+	};
+};
+
+/*
+ * Everything else pmk8350.dtsi brings in stays off, so that a bad boot has
+ * exactly one candidate cause. These nodes have NO status line of their own,
+ * so merely including the file would enable all of them:
+ *   pmk8350_vadc    SPMI ADC7
+ *   pmk8350_gpios   4 PMIC GPIOs
+ *   11 SDAMs        PMIC scratch RAM
+ * The root-level reboot-mode node goes with them: it is nvmem-reboot-mode
+ * pointing at a cell inside pmk8350_sdam_2, and would dangle with that SDAM
+ * disabled. We force TWRP through the misc-partition BCB instead, which is
+ * independent of it (see section 6 / force-TWRP-via-BCB).
+ */
+&pmk8350_vadc {
+	status = "disabled";
+};
+
+&pmk8350_gpios {
+	status = "disabled";
+};
+
+&pmk8350_sdam_1 { status = "disabled"; };
+&pmk8350_sdam_2 { status = "disabled"; };
+&pmk8350_sdam_5 { status = "disabled"; };
+&pmk8350_sdam_13 { status = "disabled"; };
+&pmk8350_sdam_14 { status = "disabled"; };
+&pmk8350_sdam_21 { status = "disabled"; };
+&pmk8350_sdam_22 { status = "disabled"; };
+&pmk8350_sdam_23 { status = "disabled"; };
+&pmk8350_sdam_41 { status = "disabled"; };
+&pmk8350_sdam_46 { status = "disabled"; };
+
+&{/reboot-mode} {
+	status = "disabled";
+};
+
+/*
+ * Wi-Fi: QCA6490 on pcie0.
+ *
+ * No driver work: QCA6490 shares PCI ID 17cb:1103 with WCN6855, and ath11k
+ * demultiplexes that ID from the chip's own version registers. This silicon
+ * reports major 2 / minor 0x00-0x01 (evidence: /vendor/firmware/qca6490 ships
+ * amss20.bin and NO amss.bin, which downstream cnss2 only picks for
+ * major == 2; BT ships hpbtfw20.tlv; PCI revision byte 0x01), which lands on
+ * ATH11K_HW_WCN6855_HW20 unmodified. See "Hard Truths/12-wifi-qca6490.md".
+ *
+ * The chip must be powered BEFORE PCIe enumeration, which is what the
+ * wcn6855-pmu + pci-pwrctrl-pwrseq pair does: the PMU drives wlan-en/bt-en,
+ * exposes the chip's internal LDOs as regulators, and pwrctrl then triggers a
+ * bus rescan so the endpoint appears. Both are built in, because
+ * deferred_probe_timeout=1 kills anything that defers waiting on a module.
+ *
+ * Rail mapping is the q2q OVERLAY's (fragment@189), which overrides the
+ * generic lahaina.dtsi one this file used to copy:
+ *   vdd-wlan-io    S10B              -> pm8350_s10      1.8 V
+ *   vdd-wlan-aon   S2MPB02 sub BUCK1 -> s2mpb02_sub_b1  1.0125 V
+ *   vdd-wlan-dig   S2MPB02 sub BUCK1 -> s2mpb02_sub_b1  1.0125 V
+ *   vdd-wlan-rfa2  S2MPB02 sub BUCK2 -> s2mpb02_sub_b2  1.35 V
+ *   vdd-wlan-rfa1  S1C               -> pm8350c_s1      1.984 V
+ *
+ * Firmware: use linux-firmware's WCN6855 hw2.0 set (amss/m3/regdb/board-2),
+ * uncompressed. Samsung's Android amss20.bin asserts ~1.7 s after WMI init
+ * under ath11k, with every one of its four bdwlan files.
+ *
+ * q2q has NO xo-clk-gpio (absent from both lahaina.dtsi and the q2q overlay),
+ * so unlike some QCA6490 boards that property is deliberately omitted.
+ */
+/ {
+	wcn6855-pmu {
+		compatible = "qcom,wcn6855-pmu";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&wlan_en_state>, <&bt_en_state>;
+
+		wlan-enable-gpios = <&tlmm 64 GPIO_ACTIVE_HIGH>;
+		bt-enable-gpios = <&tlmm 65 GPIO_ACTIVE_HIGH>;
+		/*
+		 * No swctrl-gpios: the q2q overlay deletes qcom,sw-ctrl-gpio
+		 * (and the BT one). gpio153 reads low under a pull-up with the
+		 * chip fully working, so it is not that signal on this board.
+		 */
+
+		/*
+		 * Supplies follow the q2q overlay, NOT generic lahaina.dtsi
+		 * (which says S11B/S12B/S2E and is wrong for this board):
+		 *   io          S10B              1.8 V
+		 *   aon + dig   S2MPB02 sub BUCK1 1.0125 V
+		 *   rfa2        S2MPB02 sub BUCK2 1.35 V
+		 *   rfa1        S1C               1.984 V
+		 */
+		vddio-supply = <&pm8350_s10>;
+		vddaon-supply = <&s2mpb02_sub_b1>;
+		vddpmu-supply = <&s2mpb02_sub_b2>;
+		vddpmumx-supply = <&s2mpb02_sub_b1>;
+		vddpmucx-supply = <&s2mpb02_sub_b1>;
+		vddrfa0p95-supply = <&s2mpb02_sub_b1>;
+		vddrfa1p3-supply = <&s2mpb02_sub_b2>;
+		vddrfa1p9-supply = <&pm8350c_s1>;
+		vddpcie1p3-supply = <&s2mpb02_sub_b2>;
+		vddpcie1p9-supply = <&pm8350c_s1>;
+
+		regulators {
+			vreg_pmu_rfa_cmn: ldo0 {
+				regulator-name = "vreg_pmu_rfa_cmn";
+			};
+
+			vreg_pmu_aon_0p59: ldo1 {
+				regulator-name = "vreg_pmu_aon_0p59";
+			};
+
+			vreg_pmu_wlcx_0p8: ldo2 {
+				regulator-name = "vreg_pmu_wlcx_0p8";
+			};
+
+			vreg_pmu_wlmx_0p85: ldo3 {
+				regulator-name = "vreg_pmu_wlmx_0p85";
+			};
+
+			vreg_pmu_btcmx_0p85: ldo4 {
+				regulator-name = "vreg_pmu_btcmx_0p85";
+			};
+
+			vreg_pmu_rfa_0p8: ldo5 {
+				regulator-name = "vreg_pmu_rfa_0p8";
+			};
+
+			vreg_pmu_rfa_1p2: ldo6 {
+				regulator-name = "vreg_pmu_rfa_1p2";
+			};
+
+			vreg_pmu_rfa_1p8: ldo7 {
+				regulator-name = "vreg_pmu_rfa_1p8";
+			};
+
+			vreg_pmu_pcie_0p9: ldo8 {
+				regulator-name = "vreg_pmu_pcie_0p9";
+			};
+
+			vreg_pmu_pcie_1p8: ldo9 {
+				regulator-name = "vreg_pmu_pcie_1p8";
+			};
+		};
+	};
+};
+
+&pcie0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie0_default_state>;
+
+	perst-gpios = <&tlmm 94 GPIO_ACTIVE_LOW>;
+	wake-gpios = <&tlmm 96 GPIO_ACTIVE_HIGH>;
+
+	status = "okay";
+};
+
+&pcie0_phy {
+	vdda-phy-supply = <&pm8350_l5>;
+	vdda-pll-supply = <&pm8350_l6>;
+	status = "okay";
+};
+
+/*
+ * The endpoint. sm8350.dtsi leaves the pcie0 root port unlabelled, so it is
+ * reached by path rather than by phandle.
+ *
+ * No qcom,ath11k-calibration-variant: ath11k tries board-2.bin (a container
+ * indexed by bus/chip/board id) and then falls back to a bare board.bin, and
+ * Samsung ships bare BDFs. Installing one as board.bin is the cheaper first
+ * attempt; if it is rejected, the BDFs get wrapped with ath11k-bdencoder and
+ * a variant string added here.
+ */
+&{/soc@0/pcie@1c00000/pcie@0} {
+	wifi@0 {
+		compatible = "pci17cb,1103";
+		reg = <0x10000 0x0 0x0 0x0 0x0>;
+
+		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
+		vddaon-supply = <&vreg_pmu_aon_0p59>;
+		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
+		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
+		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
+		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
+		/* 1103 requires vddrfa1p8; vddrfa1p7 is QCA6390 (1101) only */
+		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
+		vddpcie0p9-supply = <&vreg_pmu_pcie_0p9>;
+		vddpcie1p8-supply = <&vreg_pmu_pcie_1p8>;
+	};
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * GPU -- Adreno 660 (a660.1, chip id 0x06060001)
+ * ---------------------------------------------------------------------------
+ * Everything the SoC needs is already in sm8350.dtsi: gpu@3d00000,
+ * gmu@3d6a000, gpucc, adreno_smmu and the OPP tables. Three things made this
+ * safe to switch on, and all three are now true:
+ *
+ *   - adreno_smmu (3da0000.iommu) binds. It used to fail with -110, which
+ *     looked like a protected-register problem; it was deferred_probe_timeout
+ *     being 1 while gpucc is a module that loads from userspace. At 60 it
+ *     binds. Verified on the device, not inferred.
+ *   - a660.1 declares no speedbins, so nothing reads a qfprom "speed_bin"
+ *     nvmem cell. a6xx_set_supported_hw() treats -ENOENT as "no speedbin
+ *     support, fine" and returns 0. Our qfprom is TZ-protected, so a target
+ *     that DID need the fuse would be a problem.
+ *   - the GMU node has no qcom,qmp and the GPU has no interconnects, so there
+ *     is no AOSS or icc dependency to satisfy first.
+ *
+ * pil_gpu_mem, inherited from sm8350.dtsi at 0x8b51a000 size 0x2000, is byte
+ * for byte what Samsung's own lahaina.dtsi reserves, so the zap shader lands
+ * where this device's TZ expects it. Its loadable segment is 1976 bytes, well
+ * inside the 8 KiB region.
+ */
+&gpu {
+	status = "okay";
+};
+
+/*
+ * The zap shader takes the GPU out of secure mode; without it the driver
+ * cannot write the registers it needs and will not come up.
+ *
+ * It is SIGNED PER DEVICE FAMILY, so this is Samsung's own blob, pulled off
+ * this phone's firmware_mnt (capture/firmware-DATE/firmware_mnt/image.tar) --
+ * linux-firmware cannot ship one that this TZ will authenticate.
+ *
+ * Setting firmware-name makes the driver load the path verbatim with
+ * request_firmware_direct() and skip adreno_request_fw()'s qcom/-prefix
+ * guessing. The format is the split MDT/Bxx one (a660_zap.mdt + .b00..b02);
+ * qcom_mdt_load() derives the segment names from this one by replacing the
+ * extension, so all four files must sit in the same directory.
+ */
+&gpu_zap_shader {
+	firmware-name = "qcom/sm8350/samsung/q2q/a660_zap.mdt";
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * DISPLAY -- MDSS/DPU + DSI0 + the S6E3XA2 inner panel
+ * ---------------------------------------------------------------------------
+ * This REPLACES simpledrm on the bootloader framebuffer. The two cannot
+ * coexist: simpledrm would keep scanning out of the surface XBL left behind
+ * while DPU reprograms the display controller underneath it. The
+ * framebuffer@e4000000 chosen node is therefore gone, and SM_DISPCC_8250 is
+ * now a module -- the thing it used to break (the live bootloader scanout) is
+ * exactly what we are now replacing on purpose.
+ *
+ * Nothing SoC-level was needed: qcom,sm8350-mdss, -dpu, -dsi-ctrl and
+ * -dsi-phy-5nm are all upstream and sm8350.dtsi already wires them, including
+ * the dpu/dsi OPP tables and the MMCX power domain.
+ *
+ * Supply assignment follows sm8350-hdk, the SoC reference design:
+ *   dsi0 vdda  = L6B 1.2 V   (our pm8350_l6, named vreg_l6b_1p2)
+ *   dsi0 phy   = L5B 0.88 V  (our pm8350_l5)
+ *
+ * splash_region in reserved-memory is deliberately KEPT. The bootloader's
+ * framebuffer is no longer used, but leaving the carve-out reserved costs
+ * 35 MiB and removes any chance of the kernel allocating into memory the
+ * display was still scanning out of during the handover.
+ */
+&mdss {
+	status = "okay";
+};
+
+&mdss_dsi0 {
+	vdda-supply = <&pm8350_l6>;
+	status = "okay";
+
+	panel@0 {
+		compatible = "samsung,s6e3xa2-amf755ze01";
+		reg = <0>;
+
+		/*
+		 * All three rails come off the s2dos05 display sub-PMIC (see
+		 * the i2c_sub_pmic node above), NOT off RPMh. They are declared
+		 * regulator-always-on there because XBL leaves them on, so
+		 * these enables are effectively no-ops -- which is what we
+		 * want for a first attempt: the panel is already powered and
+		 * only the reset pulse and the init sequence are in question.
+		 *
+		 * Rail identities are verified from the captured merged
+		 * post-ABL DT, where the s2dos05 outputs carry these
+		 * regulator-names directly:
+		 *   ldo1 "panel_vdd3" 1.8 V logic/VDDI
+		 *   buck "panel_vddr" 1.8 V (1.6 V in LPM)
+		 *   ldo4 "panel_vci"  3.0 V, 10 ms settle
+		 */
+		vdd3-supply = <&s2dos05_ldo1>;
+		vddr-supply = <&s2dos05_buck>;
+		vci-supply  = <&s2dos05_ldo4>;
+
+		/*
+		 * NO reset-gpios. This used to say <&tlmm 24>, from the generic
+		 * Qualcomm panel nodes (qcom,platform-reset-gpio = 0x18). The
+		 * Samsung XA2 node says 0x0e: the reset is tlmm 14
+		 * (panel_xa2_ze01_reset_active). tlmm 24/25 are the CS35L41
+		 * amps' i2c bus (qup5), which is how this surfaced -- enabling
+		 * i2c5 took pin 24 and the panel failed to probe.
+		 *
+		 * The panel therefore never received a real reset from us and
+		 * runs on the bootloader's initialisation. Leaving the line
+		 * undescribed keeps exactly that behaviour. Wiring tlmm 14 is
+		 * a separate, deliberate experiment (it is also still inside
+		 * gpio-reserved-ranges).
+		 */
+		/* vendor samsung,mipisel-gpio = <&tlmm 0x61 0>, on_val = 1 */
+		mipi-sel-gpios = <&tlmm 97 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&panel_te_active>, <&panel_mipisel_active>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mdss_dsi0_out>;
+			};
+		};
+	};
+};
+
+&mdss_dsi0_out {
+	remote-endpoint = <&panel_in>;
+	data-lanes = <0 1 2 3>;
+};
+
+/*
+ * COVER DISPLAY: S6E3FAB_AMB623ZF01, 832x2268 command mode + DSC, on the
+ * second DSI controller. Driver is out of tree: cover-work/. No touch and no
+ * fold switching by design -- it is simply a second output.
+ * Both panels need 2 LM + 2 DSC each (DSC merge); SM8350 has exactly 4 DSCs.
+ */
+&mdss_dsi1 {
+	vdda-supply = <&pm8350_l6>;
+	status = "okay";
+
+	panel@0 {
+		compatible = "samsung,s6e3fab-amb623zf01";
+		reg = <0>;
+
+		vdd3-supply = <&s2mpb02_sub_l10>;
+		vddr-supply = <&s2mpb02_sub_l6>;
+		vci-supply  = <&s2mpb02_sub_l15>;
+
+		reset-gpios = <&tlmm 17 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&cover_te_active>, <&cover_reset_active>;
+
+		port {
+			cover_panel_in: endpoint {
+				remote-endpoint = <&mdss_dsi1_out>;
+			};
+		};
+	};
+};
+
+&mdss_dsi1_out {
+	remote-endpoint = <&cover_panel_in>;
+	data-lanes = <0 1 2 3>;
+	qcom,te-source = "mdp_vsync_s";
+};
+
+&mdss_dsi1_phy {
+	vdds-supply = <&pm8350_l5>;
+	status = "okay";
+};
+
+&mdss_dsi0_phy {
+	vdds-supply = <&pm8350_l5>;
+	status = "okay";
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * AUDIO, milestone 1: the ADSP only.
+ * ---------------------------------------------------------------------------
+ * Everything audible hangs off the audio DSP: q6afe/q6asm/q6adm are services
+ * inside it, reached over GLINK once it boots. sm8350.dtsi already describes
+ * the remoteproc, its smp2p pair and the APR services; this just turns it on
+ * and points it at Samsung's signed image (firmware_mnt:/image/adsp.mdt +
+ * .bNN, extracted 2026-11-07). No sound card yet -- one delta at a time.
+ *
+ * Hardware, for the later milestones (vendor overlay):
+ *   speakers  2x Cirrus CS35L41 on i2c + TERT MI2S (qcom,wsa-max-devs = 0)
+ *   mics      DMICs on the LPASS VA macro
+ *   codec     WCD938x on SoundWire (USB-C analog accessories)
+ */
+&adsp {
+	firmware-name = "qcom/sm8350/samsung/q2q/adsp.mdt";
+	status = "okay";
+};
+
+/*
+ * SENSORS, milestone 1: the SLPI only. Same shape as the ADSP above:
+ * sm8350.dtsi already describes the remoteproc, smp2p pair and the "sdsp"
+ * fastrpc edge; this points it at Samsung's signed image and the relocated
+ * memory region (see pil_slpi_mem). Userspace (hexagonrpcd + libssc) comes
+ * after this is seen to boot.
+ */
+&slpi {
+	firmware-name = "qcom/sm8350/samsung/q2q/slpi.mdt";
+	status = "okay";
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * AUDIO, milestone 2: speakers.
+ * ---------------------------------------------------------------------------
+ * Two Cirrus CS35L41 boosted amps on i2c5 (vendor qupv3_se5_i2c):
+ *     0x41  "cs35l40-top"   reset = expander pin 18
+ *     0x40  "cs35l40-bot"   reset = expander pin 19, cirrus,right-channel-amp
+ * Both interrupt on expander pin 10 (shared, open drain from the amps' GPIO2).
+ * The WCD938x is absent on this board (qcom,wcd-disabled = <1>) and
+ * qcom,wsa-max-devs = <0>, so there is no SoundWire in the playback path.
+ *
+ * Framing: the vendor runs the bus as PRI TDM (4 x 32-bit slots, 6.144 MHz).
+ * Mainline's sm8250 machine driver only knows MI2S, and the pins are the
+ * MI2S0 pins either way, so this uses PRIMARY_MI2S_RX: plain stereo I2S,
+ * 16-bit, 1.536 MHz. top = left slot, bot = right slot
+ * (patches/0006 sets the per-amp clocking and channel map).
+ *
+ * NO Cirrus DSP firmware is loaded, so there is NO speaker protection.
+ * Keep the volume down.
+ *
+ * Boost: the vendor DT gives only the peak current (4100 mA) and the vendor
+ * driver never touches the converter's loop coefficients, i.e. it runs the
+ * chip's reset values (K1 = K2 = 0x24, slope 0x75, LBST 0). Mainline insists
+ * on an inductor and a capacitor value and derives the coefficients from
+ * them; 1000 nH with a capacitor under 20 uF maps to exactly those reset
+ * values, so that is what is declared -- it reproduces the vendor's
+ * configuration, it is not a measurement of the board.
+ */
+/ {
+	i2c-expander {
+		compatible = "i2c-gpio";
+		sda-gpios = <&tlmm 171 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&tlmm 172 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		i2c-gpio,delay-us = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&exp_i2c_state>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/*
+		 * Vendor "nxp,pca953x" with gpio_num = 24; the vendor driver's
+		 * id table names it pcal6524. NO reset-gpios on purpose: the
+		 * vendor's line (TLMM 122) would return every pin to an input,
+		 * and this chip also carries s2dos05 and panel-detect lines
+		 * the bootloader has already set up.
+		 */
+		gpio_expander: gpio@22 {
+			compatible = "nxp,pcal6524";
+			reg = <0x22>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupts-extended = <&tlmm 51 IRQ_TYPE_LEVEL_LOW>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&exp_irq_state>;
+		};
+	};
+
+	sound {
+		compatible = "qcom,sm8250-sndcard";
+		model = "Samsung-Q2Q";
+		pinctrl-names = "default";
+		pinctrl-0 = <&mi2s0_state>;
+
+		mm1-dai-link {
+			link-name = "MultiMedia1";
+
+			cpu {
+				sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
+			};
+		};
+
+		speaker-dai-link {
+			link-name = "Speaker Playback";
+
+			cpu {
+				sound-dai = <&q6afedai PRIMARY_MI2S_RX>;
+			};
+
+			platform {
+				sound-dai = <&q6routing>;
+			};
+
+			codec {
+				sound-dai = <&cs35l41_top 0>, <&cs35l41_bot 0>;
+			};
+		};
+	};
+};
+
+&q6afedai {
+	dai@16 {
+		reg = <PRIMARY_MI2S_RX>;
+		qcom,sd-lines = <1>;
+	};
+};
+
+&i2c5 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	cs35l41_bot: speaker-amp@40 {
+		compatible = "cirrus,cs35l41";
+		reg = <0x40>;
+		#sound-dai-cells = <1>;
+		sound-name-prefix = "Bottom";
+		reset-gpios = <&gpio_expander 19 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio_expander 10 IRQ_TYPE_LEVEL_LOW>;
+		cirrus,boost-peak-milliamp = <4100>;
+		cirrus,boost-ind-nanohenry = <1000>;
+		cirrus,boost-cap-microfarad = <15>;
+		cirrus,asp-sdout-hiz = <3>;
+		cirrus,gpio2-src-select = <2>;
+		cirrus,gpio2-output-enable;
+	};
+
+	cs35l41_top: speaker-amp@41 {
+		compatible = "cirrus,cs35l41";
+		reg = <0x41>;
+		#sound-dai-cells = <1>;
+		sound-name-prefix = "Top";
+		reset-gpios = <&gpio_expander 18 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio_expander 10 IRQ_TYPE_LEVEL_LOW>;
+		cirrus,boost-peak-milliamp = <4100>;
+		cirrus,boost-ind-nanohenry = <1000>;
+		cirrus,boost-cap-microfarad = <15>;
+		cirrus,asp-sdout-hiz = <3>;
+		cirrus,gpio2-src-select = <2>;
+		cirrus,gpio2-output-enable;
+	};
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * BLUETOOTH: the BT half of the QCA6490, on UART18.
+ *
+ * Nothing new on the power side: the wcn6855-pmu node above already owns
+ * bt-enable (TLMM 65, vendor qcom,bt-reset-gpio = 0x41) and all the rails, and
+ * hci_qca reaches it through the power sequencer because this node has no
+ * enable-gpios of its own. The supplies below are the PMU's outputs, which is
+ * what makes pwrseq match.
+ *
+ * Firmware is upstream linux-firmware qca/hpbtfw21.tlv + qca/hpnv21.* and must
+ * be UNCOMPRESSED on the rootfs (CONFIG_FW_LOADER_COMPRESS is off).
+ * No BD address is provisioned; set one with btmgmt public-addr.
+ * ---------------------------------------------------------------------------
+ */
+/*
+ * REQUIRED: qcom_geni_serial takes its line number from a "serial" (or
+ * "hsuart") alias and refuses to probe without one --
+ * "890000.serial: Invalid line -19". This board had no aliases node at all.
+ */
+/ {
+	aliases {
+		serial1 = &uart18;
+	};
+};
+
+&qupv3_id_2 {
+	status = "okay";
+};
+
+&uart18 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&bt_uart_state>;
+	status = "okay";
+
+	bluetooth {
+		compatible = "qcom,wcn6855-bt";
+		max-speed = <3200000>;
+
+		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
+		vddaon-supply = <&vreg_pmu_aon_0p59>;
+		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
+		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
+		vddbtcmx-supply = <&vreg_pmu_btcmx_0p85>;
+		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
+		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
+		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
+	};
+};

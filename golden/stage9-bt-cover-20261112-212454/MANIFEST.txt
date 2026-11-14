@@ -1,0 +1,12 @@
+stage9 -- 2026-11-12T21:24:54+00:00
+boot image sha256: b0a4bd8cca267133d3ce6254098b89f6c6bb3d0197af76558a828ca62194dc1f
+On top of stage8, verified on device 2026-11-12:
+  * Bluetooth controller (hci0 on UART18; RF is weak, see HANDBOOK section 22)
+  * pm8350c_l9 on at 2.904 V (on-grid; 2.900 V fails the whole PMIC probe)
+  * cover display S6E3FAB as DSI-2 -- user confirmed a picture
+Needs alongside the boot image, in /lib/modules/<rel>/extra + depmod:
+  s2mpb02-regulator.ko (LDO6/9/10/15), panel-samsung-s6e3fab.ko
+  -- WITHOUT them the inner display does not come up either.
+And in the module tree: panel-samsung-s6e3xa2.ko.
+Userspace on the phone (not captured here): BT firmware qca/hpbtfw20.tlv +
+hpnv20.bin, fold3-bt-addr.service, hexagonrpcd-sdsp.service, sensor files.

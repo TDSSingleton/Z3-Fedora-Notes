@@ -1,0 +1,63 @@
+STAGE 6 -- stage 5 plus kprobes, and the S2E rail at the vendor voltage
+date   2026-11-11T17:11:12+00:00
+image  sha256 0e8c3f951cb28b00c1464fa85c18516877f2939ef918e1988c53e4c63b38f38c
+       kernel 7.2.15-q2q #58
+       BOOTED AND VERIFIED: display, GPU and inner touch all working.
+
+!! THIS IMAGE AND ITS MODULE TREE ARE A MATCHED PAIR. !!
+Enabling FTRACE/KPROBES changed the size of struct module, so modules built
+for stage 5 will NOT load against this kernel and vice versa -- they fail with
+  .gnu.linkonce.this_module section size must match the kernel's built
+  struct module size at run time
+The kernel release is identical (7.2.15-q2q) so NOTHING warns. Mixing them
+cost two full cycles today: it presents as display + touch + PCIe all dead at
+once. If you flash stage 5 again, restore its module tree too
+(/lib/modules/7.2.15-q2q.old on the device is the stage-5 one).
+
+CHANGES SINCE STAGE 5
+
+  FTRACE + KPROBES       CONFIG_FTRACE / KPROBES / KPROBE_EVENTS / UPROBES.
+  (+2.8 MiB Image)       Deliberately NOT FUNCTION_TRACER: that cost another
+                         2 MiB and kprobes already answer the question. Image
+                         is 47.5 MiB; uniLoader relocates itself plus payloads
+                         into the one free 64 MiB gap at 0x9bb00000 and the
+                         next reserved region is at 0x9fb00000, so the margin
+                         is ~12 MiB. Watch it.
+
+  pmr735a_s2 PINNED      1012000/1012000, was 950000-976000.
+  to 1.012 V             The vendor's own value for vdd-wlan-aon
+                         (lahaina.dtsi qcom,cnss-qca6490), inside the PMIC's
+                         declared 500000-1020000 range. The old range came
+                         from sm8350-sony-xperia-sagami, where S2E powers
+                         something else, and could not even reach 1.012 V.
+                         Only consumer is the wcn6855-pmu's vddpmumx.
+                         Confirmed applied: "pmr735a_s2: Setting
+                         1012000-1012000uV".
+                         RESULT: did NOT fix the PCIe link. LnkSta still
+                         0x1011, still "Device not found". Kept anyway --
+                         it is the correct value for this board.
+
+  fts9cu80f.ko           Rebuilt for this kernel. Out-of-tree, so
+                         modules_install does NOT ship it: it goes to
+                         /lib/modules/7.2.15-q2q/extra/ by hand + depmod.
+                         "make" in touch-work/ will NOT rebuild it after a
+                         kernel config change (sources unchanged) -- run
+                         "make clean" first, then check the .ko is newer
+                         than arch/arm64/boot/Image.
+
+STILL OPEN ON WIFI
+  LnkSta = 0x1011 (DLActive 0, LinkTraining 0), bus 01 empty.
+  Ruled out so far: driver support, missing modules, probe ordering, power
+  rails present, missing perst, and now the AON rail VOLTAGE.
+  Vendor PCIe node compared property-by-property against ours: matches
+  (perst 94, wake 96, vreg-1p8 = L6B 1.2 V, vreg-0p9 = L5B 0.88 V).
+  Next leads: (a) xo-clk-gpios -- sm8450-hdk, the board our mapping was
+  copied from and which drives the SAME chip, has
+  xo-clk-gpios = <&tlmm 204>, and pwrseq_qcom_wcn6855_clk_assert() SILENTLY
+  returns 0 when that gpio is absent, so the XO assert step never runs for
+  us; (b) PERST# timing, now measurable with the kprobes in this image.
+
+  modules-7.2.15-q2q.tar.gz  the MATCHING module tree for this kernel.
+                         Restore with: tar xzf it -C /lib/modules on the
+                         device, then depmod -a 7.2.15-q2q, and reinstall
+                         extra/fts9cu80f.ko (also in this directory).

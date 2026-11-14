@@ -1,0 +1,17 @@
+FROM registry.fedoraproject.org/fedora:44
+
+# A minimal but real system: systemd as PID 1, a login on the serial console,
+# and the handful of tools needed to debug from inside.
+RUN dnf -y --setopt=install_weak_deps=False install \
+        systemd systemd-udev util-linux passwd \
+        iproute iputils procps-ng pciutils usbutils \
+        vim-minimal less findutils \
+ && dnf clean all
+
+# serial console login (our USB gadget shows up as ttyGS0)
+RUN systemctl enable serial-getty@ttyGS0.service || true
+RUN systemctl set-default multi-user.target
+
+# root with no password -- a bringup device on a cable, not a phone in a pocket
+RUN passwd -d root
+RUN echo "fold3" > /etc/hostname

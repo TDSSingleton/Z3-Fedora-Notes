@@ -1,0 +1,81 @@
+STAGE 5 -- GPU-ACCELERATED PLASMA ON THE REAL PANEL. The goal.
+date   2026-11-11T15:10:05+00:00
+image  sha256 6603f8242df13fbfff3ebe0003782ff34a4150f501237470125a5dd21d25379d
+       kernel 7.2.15-q2q #56
+       BOOTED AND VERIFIED: the inner S6E3XA2 lit on the FIRST attempt, KWin
+       composites on the Adreno 660, and the user's words were "smooth as
+       butter". Inner touch still works.
+
+WHAT MAKES THIS WORK
+
+  one DRM device       msm_dpu bound BOTH ae94000.dsi and 3d00000.gpu into
+                       minor 0, so card0 and renderD128 are the same device.
+                       kwin_wayland holds clients on dev 128 (render) and is
+                       master on dev 0 (scanout) -- the zero-copy path. This
+                       is why separate_gpu_kms must now be 0 (its default);
+                       /etc/modprobe.d/msm-gpu.conf was REMOVED.
+
+  SM_DISPCC_8250=m     the symbol is _8250, not _8350 (dispcc-sm8250.c handles
+                       qcom,sm8350-dispcc). Built out for the whole project
+                       until now because it destroys the live bootloader
+                       scanout -- which is exactly what we now replace.
+
+  DRM_MSM_DPU=y        plus DRM_MSM_DSI=y and DRM_MSM_DSI_7NM_PHY=y (7nm is
+  inside DRM_MSM=m     the right symbol for SM8350: dsi_phy_7nm.c carries
+                       dsi_phy_5nm_8350_cfgs).
+
+  the panel driver     panel-work/panel-samsung-s6e3xa2.c, decoded from the
+                       vendor DTS by tools/extract-panel-cmds.py. It had never
+                       run on hardware before this boot. It is NOT upstream --
+                       7.2.15 ships no s6e3xa2 -- so it lives in the tree as
+                       an untracked file plus Kconfig/Makefile entries.
+
+  no framebuffer node  framebuffer@e4000000 is GONE from chosen. simpledrm
+                       cannot coexist with DPU: it would keep scanning out of
+                       XBL's surface while DPU reprograms the controller.
+                       DRM_SIMPLEDRM stays compiled in so putting the node
+                       back is a DTS-only change when debugging a dark panel.
+
+THREE PIN NUMBERS, ALL FROM THE VENDOR DT, ALL PREVIOUSLY RESERVED
+
+  gpio24  panel reset    vendor qcom,platform-reset-gpio = 0x18.
+                         panel-work/display.dtsi said 14. That was WRONG.
+  gpio82  panel TE       muxed to function "mdp_vsync", NOT a gpio consumer:
+                         the tear-effect line reaches the DPU INTF in
+                         hardware. A command-mode panel has no timing of its
+                         own, so without this mux there is no vsync at all.
+  gpio97  mipi-sel       vendor samsung,mipisel-gpio = 0x61, on_val 1.
+
+All three had to come out of gpio-reserved-ranges, which is now
+<0 5>, <6 14>, <25 7>, <34 30>, <66 10>, <78 4>, <83 11>, <98 55>,
+<154 11>, <166 37>.
+
+SUPPLIES
+  dsi0 vdda = pm8350_l6 (L6B 1.2 V), dsi0 phy vdds = pm8350_l5 (L5B 0.88 V),
+  following sm8350-hdk, the SoC reference design.
+  The panel's own three rails come off the s2dos05 sub-PMIC and are left
+  regulator-always-on with NO voltage constraints, so the panel driver's
+  regulator_bulk_enable() is effectively a no-op. That was deliberate for the
+  first attempt: XBL already powers the panel, so only the reset pulse and the
+  init sequence were in question. It worked, so they stay as they are.
+
+KNOWN COSMETIC / OPEN
+  "DSI PLL(0) lock failed, status=0x00000000" at ~6.07 s in
+  dsi_phy_driver_probe, with "dsi0_phy_pll_out_dsiclk already disabled/
+  unprepared" and two WARN backtraces. NOT fatal: the PLL locks when the real
+  modeset runs, the connector comes up "connected/enabled" at 2208x1768 and
+  the panel lights. Almost certainly the handoff from the clocks XBL left
+  running. Worth cleaning up, has no user-visible effect.
+
+  "Fixed dependency cycle(s)" between dpu/dsi/panel -- normal fw_devlink
+  chatter on every msm display, not a problem.
+
+  The panel still advertises only 120 Hz and 96 Hz. 60/48 Hz need the 0xb9
+  byte set to 0x01 and drm_panel has no mode_set callback to select per-mode
+  init from, so they are omitted rather than advertised-and-wrong.
+
+  Panel orientation is still not declared: the glass scans LANDSCAPE
+  (2208x1768) on a portrait device, so drm_connector_set_panel_orientation()
+  is the correct fix. Touch is currently transposed in the DT to match the
+  landscape framebuffer (touchscreen-swapped-x-y + touchscreen-inverted-x), so
+  changing one without the other WILL break touch.

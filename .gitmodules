@@ -1,0 +1,9 @@
+[submodule "linux"]
+	path = linux
+	url = https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+[submodule "linux-fedora"]
+	path = linux-fedora
+	url = https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+[submodule "uniloader"]
+	path = uniloader
+	url = https://github.com/ivoszbg/uniLoader.git

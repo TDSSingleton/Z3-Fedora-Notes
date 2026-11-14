@@ -1,0 +1,57 @@
+diff --git a/init/main.c b/init/main.c
+index dd7b2a659..5660889d0 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -1551,8 +1551,10 @@ static int __ref kernel_init(void *unused)
+ 	wait_for_completion(&kthreadd_done);
+ 
+ 	kernel_init_freeable();
++	pr_err("### Q2Q MARK 9: before async_synchronize_full\n");
+ 	/* need to finish all async __init code before freeing the memory */
+ 	async_synchronize_full();
++	pr_err("### Q2Q MARK 10: async_synchronize_full done\n");
+ 
+ 	system_state = SYSTEM_FREEING_INITMEM;
+ 	kprobe_free_init_mem();
+@@ -1661,11 +1663,14 @@ static noinline void __init kernel_init_freeable(void)
+ 	page_alloc_init_late();
+ 
+ 	do_basic_setup();
++	pr_err("### Q2Q MARK 1: do_basic_setup done\n");
+ 
+ 	kunit_run_all_tests();
+ 
+ 	wait_for_initramfs();
++	pr_err("### Q2Q MARK 2: wait_for_initramfs done\n");
+ 	console_on_rootfs();
++	pr_err("### Q2Q MARK 3: console_on_rootfs done\n");
+ 
+ 	/*
+ 	 * check if there is an early userspace init.  If yes, let it do all
+@@ -1673,12 +1678,18 @@ static noinline void __init kernel_init_freeable(void)
+ 	 */
+ 	int ramdisk_command_access;
+ 	ramdisk_command_access = init_eaccess(ramdisk_execute_command);
++	pr_err("### Q2Q MARK 4: init_eaccess(\"%s\") = %d  (0 means /init IS usable)\n",
++	       ramdisk_execute_command ? ramdisk_execute_command : "(null)",
++	       ramdisk_command_access);
+ 	if (ramdisk_command_access != 0) {
+ 		if (ramdisk_execute_command_set)
+ 			pr_warn("check access for rdinit=%s failed: %i, ignoring\n",
+ 				ramdisk_execute_command, ramdisk_command_access);
+ 		ramdisk_execute_command = NULL;
++		pr_err("### Q2Q MARK 5: entering prepare_namespace -- /init NOT usable,\n");
++		pr_err("###            kernel is now hunting for a REAL root fs\n");
+ 		prepare_namespace();
++		pr_err("### Q2Q MARK 6: prepare_namespace returned\n");
+ 	}
+ 
+ 	/*
+@@ -1690,5 +1701,7 @@ static noinline void __init kernel_init_freeable(void)
+ 	 * and default modules
+ 	 */
+ 
++	pr_err("### Q2Q MARK 7: reached integrity_load_keys\n");
+ 	integrity_load_keys();
++	pr_err("### Q2Q MARK 8: kernel_init_freeable done\n");
+ }

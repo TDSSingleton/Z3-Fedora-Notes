@@ -1,0 +1,36 @@
+diff --git a/drivers/gpu/drm/msm/adreno/adreno_device.c b/drivers/gpu/drm/msm/adreno/adreno_device.c
+index 05c77fe27..63334fe59 100644
+--- a/drivers/gpu/drm/msm/adreno/adreno_device.c
++++ b/drivers/gpu/drm/msm/adreno/adreno_device.c
+@@ -280,12 +280,26 @@ static int adreno_probe(struct platform_device *pdev)
+ 
+ static void adreno_remove(struct platform_device *pdev)
+ {
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
+-
+-	if (priv->kms_init)
+-		component_del(&pdev->dev, &a3xx_ops);
+-	else
++	/*
++	 * Mirror adreno_probe()'s condition exactly rather than trying to
++	 * recover the path taken from drvdata.
++	 *
++	 * drvdata cannot answer the question: on the component path nothing
++	 * ever sets it, so it is NULL and the old priv->kms_init test was a
++	 * NULL dereference -- which is what `rmmod msm` did on a GPU-only
++	 * (CONFIG_DRM_MSM_KMS=n) build. And on the other path it does not stay
++	 * a msm_drm_private either: msm_gpu_probe() sets it to priv, then
++	 * msm_gpu_init() overwrites it with &gpu->adreno_smmu, so priv->kms_init
++	 * reads a field of the wrong struct.
++	 *
++	 * separate_gpu_kms is a 0400 module parameter, so this condition cannot
++	 * have changed since probe.
++	 */
++	if (of_device_is_compatible(pdev->dev.of_node, "amd,imageon") ||
++	    msm_gpu_no_components())
+ 		msm_gpu_remove(pdev, &a3xx_ops);
++	else
++		component_del(&pdev->dev, &a3xx_ops);
+ }
+ 
+ static void adreno_shutdown(struct platform_device *pdev)

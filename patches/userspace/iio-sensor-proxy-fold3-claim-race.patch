@@ -1,0 +1,17 @@
+diff --git a/src/iio-sensor-proxy.c b/src/iio-sensor-proxy.c
+index 9c7e8cd..34d51ca 100644
+--- a/src/iio-sensor-proxy.c
++++ b/src/iio-sensor-proxy.c
+@@ -779,6 +779,12 @@ name_acquired_handler (GDBusConnection *connection,
+ 		}
+ 
+ 		DEVICE_FOR_TYPE(i) = sensor_device;
++
++		/* Fold 3 local fix: SSC discovery spins the main loop, so a client
++		 * can Claim before the device exists. It is then counted but never
++		 * polled, and every later Claim sees size > 1 and skips polling too. */
++		if (g_hash_table_size (data->clients[i]) > 0)
++			driver_set_polling (sensor_device, TRUE);
+ 	}
+ 
+ 	if (!any_sensors_left (data))

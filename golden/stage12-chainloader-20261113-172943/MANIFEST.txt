@@ -1,0 +1,8 @@
+stage12 on top of stage11: kexec chainloader in the embedded initramfs (kernel Image and DTB unchanged).
+date: 2026-11-13T17:29:43+00:00
+boot image sha256: 254b6df74b0e34469331a1aba2cb6bf1226d6734e189f5ec1774ca92ca563bd9
+initramfs.cpio.gz          = loader initramfs embedded in boot.img (init-rootfs.sh + bin/kexec-load)
+initramfs-chained.cpio.gz  = same + /chained marker; this is what a chainloaded entry gets as its initramfs
+on the phone: /boot/fold3/entries/7.2.15-q2q/{Image,initramfs,cmdline}, /usr/local/sbin/fold3-boot, fold3-boot-ok.service
+verified: default entry boots chainloaded (touch, both panels, WiFi, modem, sensors); an unconfirmed boot falls back
+to the embedded kernel and marks the default failed; restoring the default works.

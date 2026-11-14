@@ -1,0 +1,70 @@
+STAGE 4 -- GPU (Adreno 660) render-only, and a console that no longer needs USB
+date   2026-11-11T14:55:15+00:00
+image  sha256 4d7df5c57cec57bcda26705e28478f0091fb457d325987b0ea79b7ad63a48b73
+       kernel 7.2.15-q2q #55
+       BOOTED AND VERIFIED on device: Plasma Mobile, inner touch, GPU
+       rendering on FD660 (Mesa 26.2.3, OpenGL ES 3.2).
+
+THIS IS THE LAST IMAGE BEFORE THE DISPLAY STACK IS TOUCHED.
+Flash it back if DPU/DSI/panel work leaves the device without a screen:
+  heimdall flash --BOOT golden/stage4-gpu-20261111-145515/q2q-stage1-boot.img
+
+ADDED SINCE STAGE 3 (and since the Fedora/Plasma/touch work):
+
+  u_serial patch         THE DEVICE NOW BOOTS WITH NO USB HOST ATTACHED.
+  (patches/0003)         gs_write_room() returned 0 whenever no host was
+                         enumerated, so the tty layer blocked every writer
+                         to /dev/console -- and console=ttyGS0 makes
+                         /dev/console resolve to the gadget tty. systemd's
+                         first status write hung the boot until a host
+                         appeared. Now discarded when port_usb == NULL.
+                         Kernel printk was never affected: gs_console_write()
+                         already drops into a "[missed N bytes]" counter.
+                         STILL UNFIXED: a host that enumerates but never
+                         OPENS the port blocks exactly as before, so keep
+                         draining /dev/fold3 during boots.
+
+  DRM_MSM=m              GPU only. DRM_MSM_KMS is a separate symbol since
+  KMS built out          v6.15 (def_bool n, select-ed by MDP4/MDP5/DPU), so
+                         with MDP4/MDP5/DPU/DSI/DP/HDMI all =n msm registers
+                         a render-only DRM device and simpledrm keeps card0
+                         and the live bootloader scanout.
+                         -> /dev/dri/card1 + renderD128, GL_RENDERER FD660.
+
+  &gpu status okay       sm8350.dtsi already had gpu/gmu/gpucc/adreno_smmu
+  zap firmware-name      and the OPP tables. Only two DT lines were needed.
+
+  a660 firmware          /lib/firmware/qcom/a660_sqe.fw + a660_gmu.bin
+  (in the ROOTFS,        (Samsung's own, uncompressed -- Fedora ships only
+   not in this image)    .xz and CONFIG_FW_LOADER_COMPRESS is off), and
+                         qcom/sm8350/samsung/q2q/a660_zap.{mdt,b00,b01,b02}.
+                         The zap shader is signed per device family, so it
+                         must be Samsung's; it authenticated through TZ PAS
+                         on the first try.
+
+  adreno_remove patch    rmmod msm oopsed on a KMS-less build: drvdata is
+  (patches/0004)         NULL on the component path, and on the other path
+                         msm_gpu_init() overwrites it with &gpu->adreno_smmu,
+                         so priv->kms_init read the wrong struct either way.
+
+THREE SECTION-18 "TRAPS" THAT TURNED OUT NOT TO EXIST:
+  - adreno_smmu failing with -110 was deferred_probe_timeout=1 expiring
+    while gpucc is a module loaded from userspace. At 60 it binds fine.
+  - a660.1 declares no speedbins, so nothing reads the TZ-owned qfprom
+    "speed_bin" nvmem cell; a6xx_set_supported_hw() treats -ENOENT as OK.
+  - the GMU has no qcom,qmp and the GPU has no interconnects: no AOSS or
+    icc dependency.
+
+MODULE PARAMETER THAT IS NOT OPTIONAL:
+  insmod msm.ko separate_gpu_kms=1
+  msm_gpu_no_components() returns the separate_gpu_kms module param with NO
+  CONFIG_DRM_MSM_KMS guard, so by default adreno_probe() calls component_add()
+  and waits forever for a KMS master that a GPU-only build never creates. The
+  device then shows as BOUND to the adreno driver, prints nothing at all, and
+  creates no DRM device. Pinned in /etc/modprobe.d/msm-gpu.conf on the rootfs.
+
+WHAT THIS DOES NOT DO:
+  It does NOT make the UI fast. KWin still composites 2208x1768 through
+  kms_swrast on simpledrm: simpledrm has no render node and is not one of
+  Mesa's kmsro display drivers, so GPU-rendered buffers have no path to it.
+  That needs DPU + DSI + the S6E3XA2 panel, which replaces simpledrm.

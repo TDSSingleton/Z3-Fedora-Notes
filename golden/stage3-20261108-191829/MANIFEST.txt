@@ -1,0 +1,26 @@
+STAGE 3 -- thermals + UFS + fuel gauge
+date   2026-11-08T19:18:29+00:00
+image  sha256 50050ff0b9d81db58ce7c778f205eb1824553e070eb98afd8fa66339e62f2044
+       (flashed and verified on device; NOT yet booted)
+
+ADDED SINCE STAGE 2:
+  QCOM_TSENS=y           29 thermal zones, ~34C idle. Needs
+                         NVMEM_QCOM_QFPROM=y as a BUILD dep only --
+                         no qfprom node in our DT, so it never probes.
+  UFS                    /dev/sda..sdf, sda19 = boot, self-flash works
+  BATTERY_MAX17042=y     fuel gauge via maxim,max77705-battery @ 0x36
+                         read-only: no maxim,config-data in DT, so
+                         max17042_init_chip() never runs
+  battery node           voltage-max-design 4.2V (Samsung uses 4.44V)
+  gpio-reserved-ranges   <0 5>,<6 197>  -- frees ONLY gpio 5 and 203
+
+DELIBERATELY NOT ENABLED:
+  CHARGER_MAX77705       the Fold 3 is a MANAGED dual-cell system:
+                         samsung,sec-dual-battery over two s2asl01
+                         limiters (i2c 0x38 main / 0x39 sub), with
+                         per-cell temp tables and thermal current
+                         limits. Mainline has NO s2asl01 driver and no
+                         dual-battery support. Charging would run with
+                         both limiters in bootloader state and no
+                         per-cell oversight. Revisit when they can be
+                         READ. DT node kept, status=disabled.

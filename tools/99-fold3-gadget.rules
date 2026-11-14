@@ -1,0 +1,4 @@
+# Mainline Fold 3 USB serial gadget (g_serial / CDC-ACM).
+# Makes /dev/ttyACM* world-accessible so the debug console survives replugs
+# without a chmod each time.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0525", ATTRS{idProduct}=="a4a7", MODE="0666", SYMLINK+="fold3"

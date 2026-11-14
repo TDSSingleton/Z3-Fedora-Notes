@@ -1,0 +1,10 @@
+[Unit]
+Description=Fold 3: raise the bootloader's charge current while a charger is attached
+
+[Service]
+ExecStart=/usr/local/sbin/fold3-charge
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

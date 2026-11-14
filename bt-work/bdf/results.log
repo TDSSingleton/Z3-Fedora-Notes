@@ -1,0 +1,54 @@
+=== elf-symbol-name-only  00:00:42 up 43.88
+bd2b23cd64870e5f
+[    6.744611] ath11k_pci 0000:01:00.0: BAR 0 [mem 0x60400000-0x605fffff 64bit]: assigned
+[    6.744718] ath11k_pci 0000:01:00.0: enabling device (0000 -> 0002)
+[    6.778376] ath11k_pci 0000:01:00.0: MSI vectors: 32
+[    6.778418] ath11k_pci 0000:01:00.0: wcn6855 hw2.0
+[    7.161616] Modules linked in: q6asm_dai q6routing q6afe_dai q6afe_clocks q6adm q6asm snd_q6dsp_common q6afe q6core apr pdr_interface ath11k_pci(+) hci_uart ath11k pan
+[    7.162136] Modules linked in: q6asm_dai q6routing q6afe_dai q6afe_clocks q6adm q6asm snd_q6dsp_common q6afe q6core apr pdr_interface ath11k_pci(+) hci_uart ath11k pan
+[    7.975076] ath11k_pci 0000:01:00.0: chip_id 0x2 chip_family 0xb board_id 0xff soc_id 0x400c0200
+[    7.975101] ath11k_pci 0000:01:00.0: fw_version 0x11088c35 fw_build_timestamp 2024-04-17 08:34 fw_build_id WLAN.HSP.1.1-03125-QCAHSPSWPL_V1_V2_SILICONZ_LITE-3.6510.41
+[    8.340962] ath11k_pci 0000:01:00.0: firmware crashed: MHI_CB_EE_RDDM
+[    8.341072] ath11k_pci 0000:01:00.0: ignore reset dev flags 0x8000
+[    9.571829] Modules linked in: cpufreq_conservative qrtr_mhi q6asm_dai q6routing q6afe_dai q6afe_clocks q6adm q6asm snd_q6dsp_common q6afe q6core apr pdr_interface ath
+[   18.147429] ath11k_pci 0000:01:00.0: failed to wait board file download request: -110
+[   18.147454] ath11k_pci 0000:01:00.0: qmi failed to load bdf file
+[   18.147690] ath11k_pci 0000:01:00.0: failed to load board data file: -110
+dmesg: write error
+RESULT crash
+rebooting to restore wifi
+=== boot-control-generic  11:30:47 up 44.45
+02f5bf0bbf7ec340
+[    7.518408] ath11k_pci 0000:01:00.0: BAR 0 [mem 0x60400000-0x605fffff 64bit]: assigned
+[    7.518553] ath11k_pci 0000:01:00.0: enabling device (0000 -> 0002)
+[    7.556649] ath11k_pci 0000:01:00.0: MSI vectors: 32
+[    7.556688] ath11k_pci 0000:01:00.0: wcn6855 hw2.0
+[    7.849443] Modules linked in: q6afe_clocks(+) q6asm_dai q6routing q6afe_dai q6adm q6asm snd_q6dsp_common q6afe q6core apr pdr_interface panel_samsung_s6e3fab(O+) pane
+[    7.850118] Modules linked in: q6afe_clocks(+) q6asm_dai q6routing q6afe_dai q6adm q6asm snd_q6dsp_common q6afe q6core apr pdr_interface panel_samsung_s6e3fab(O+) pane
+[    8.495759] ath11k_pci 0000:01:00.0: chip_id 0x2 chip_family 0xb board_id 0xff soc_id 0x400c0200
+[    8.495833] ath11k_pci 0000:01:00.0: fw_version 0x11088c35 fw_build_timestamp 2024-04-17 08:34 fw_build_id WLAN.HSP.1.1-03125-QCAHSPSWPL_V1_V2_SILICONZ_LITE-3.6510.41
+[    8.814206] ath11k_pci 0000:01:00.0 wlp1s0: renamed from wlan0
+[    9.703106] Modules linked in: cpufreq_conservative qrtr_mhi q6afe_clocks q6asm_dai q6routing q6afe_dai q6adm q6asm snd_q6dsp_common q6afe q6core apr pdr_interface pan
+RESULT ok
+	signal:  	-45 [-78, -45] dBm
+	signal:  	-46 [-80, -46] dBm
+	signal:  	-45 [-77, -45] dBm
+bt: -94 
+=== oldest-upstream-amss+samsung-bdf  00:00:42 up 44.20
+1c58602bad06 185835140e17 
+[    7.171814] ath11k_pci 0000:01:00.0: BAR 0 [mem 0x60400000-0x605fffff 64bit]: assigned
+[    7.171935] ath11k_pci 0000:01:00.0: enabling device (0000 -> 0002)
+[    7.182440] Modules linked in: ath11k_pci(+) qcom_pd_mapper(+) qcom_pdr_msg snd_usb_audio(+) ath11k snd_soc_cs35l41_i2c(+) snd_hwdep snd_usbmidi_lib snd_soc_cs35l41 sn
+[    7.182955] Modules linked in: ath11k_pci(+) qcom_pd_mapper(+) qcom_pdr_msg snd_usb_audio(+) ath11k snd_soc_cs35l41_i2c(+) snd_hwdep snd_usbmidi_lib snd_soc_cs35l41 sn
+[    7.223483] ath11k_pci 0000:01:00.0: MSI vectors: 32
+[    7.223550] ath11k_pci 0000:01:00.0: wcn6855 hw2.0
+[    7.643375] Modules linked in: panel_samsung_s6e3xa2(+) panel_samsung_s6e3fab(O) backlight snd_soc_sm8250 snd_soc_qcom_offload_utils snd_soc_qcom_sdw snd_soc_qcom_comm
+[    7.643963] Modules linked in: panel_samsung_s6e3xa2(+) panel_samsung_s6e3fab(O) backlight snd_soc_sm8250 snd_soc_qcom_offload_utils snd_soc_qcom_sdw snd_soc_qcom_comm
+[    8.126902] ath11k_pci 0000:01:00.0: chip_id 0x2 chip_family 0xb board_id 0xff soc_id 0x400c0200
+[    8.126932] ath11k_pci 0000:01:00.0: fw_version 0x110d8c35 fw_build_timestamp 2022-01-27 04:01 fw_build_id WLAN.HSP.1.1-03125-QCAHSPSWPL_V1_V2_SILICONZ_LITE-3
+[    8.482969] ath11k_pci 0000:01:00.0: firmware crashed: MHI_CB_EE_RDDM
+[    8.483070] ath11k_pci 0000:01:00.0: ignore reset dev flags 0x8000
+[   11.214598] Modules linked in: af_alg cpufreq_conservative qrtr_mhi q6asm_dai q6routing q6afe_clocks q6afe_dai q6adm q6asm q6afe snd_q6dsp_common q6core rpmsg_ctrl apr
+[   18.410487] ath11k_pci 0000:01:00.0: failed to wait board file download request: -110
+RESULT crash
+rebooting to restore wifi

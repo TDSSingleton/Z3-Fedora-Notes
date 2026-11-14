@@ -1,0 +1,24 @@
+STAGE 1 COMPLETE -- mainline Linux reaches userspace on SM-F926B (q2q)
+date:        2026-11-08T02:38:04+00:00
+attempt:     40
+boot image:  sha256 e63cd71dc51ac4040345bdf171ddd3bb53ba7f2c65b1b94cf3a05c70ec934541
+kernel:      v7.2.15
+
+CMDLINE:
+console=tty0 fbcon=font:6x8 clk_ignore_unused regulator_ignore_unused pd_ignore_unused cpuidle.off=1 loglevel=8 deferred_probe_timeout=1 initcall_debug
+
+THE FIXES THAT MATTERED, in the order they were found:
+   1  boot hdr v3 + real ramdisk        ABL accepts the container
+   2  TEXT_BASE 0xa0200000 -> 0x81200000 uniLoader stops overwriting itself
+   3  SM_DISPCC_8250 = n                 stops reprogramming the live scanout
+   4  /dev/console in the initramfs      init can speak (gen_init_cpio)
+   5  TEXT_BASE -> 0x9bb00000            out of the 70 MiB no-map region, so
+                                         the DTB stops blocking its reservation
+   6  simpledrm -> simplefb              synchronous console; crash text survives
+   7  QCOM_WDT = n, no watchdog DT node  0x17c10000 aborts from non-secure world
+   8  gpio-reserved-ranges = <0 204>     TZ-owned TLMM lines; THE big one
+   9  QCOM_SMP2P = n                     remote-processor IPC hang
+  10  QCOM_BAM_DMA = n                   secure-owned crypto BAM irq storm
+  11  SOFTLOCKUP_DETECTOR = n            lockup_detector_check blocked forever
+  12  clk_ignore_unused + regulator_ +   stop the kernel powering off the
+      pd_ignore_unused                   bootloader framebuffer we run on

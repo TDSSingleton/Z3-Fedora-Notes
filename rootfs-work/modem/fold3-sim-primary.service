@@ -1,0 +1,12 @@
+[Unit]
+Description=Fold 3: put the SIM on the modem's primary subscription
+After=rmtfs.service tqftpserv.service
+Before=ModemManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/fold3-sim-primary.sh
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

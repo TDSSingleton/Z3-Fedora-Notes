@@ -1,0 +1,65 @@
+#!/usr/bin/python3
+"""Fold 3: usable charging on mainline without a charger driver.
+
+The bootloader leaves the MAX77705 charging at its minimum current (~100 mA)
+with a 500 mA input limit, so the phone drains under load even when plugged in.
+This sets, while a source is attached:
+  charge current  900 mA   -- the most that stays under EITHER cell's 900 mA
+                              hardware cap (S2ASL01 limiters) with no limiter driver
+  input limit     by BC1.2 type, as the chip's own detection reports it:
+                  DCP (wall charger) 1500 mA, CDP 600 mA (what stock used),
+                  SDP / unknown 500 mA (the bootloader's value, USB 2.0 legal)
+Outside 0..45 degC battery temperature it falls back to the bootloader's
+values, and it restores them on exit. Float voltage (4.35 V) is never touched.
+Registers checked against Samsung's max77705_charger.c: CNFG_02[5:0] = mA/50,
+CNFG_09[6:0] = mA/25 - 1; BC_STATUS (usbc 0x25 reg 0x08) [1:0] = charger type.
+"""
+import glob, os, signal, subprocess, sys, time
+
+CHG, USBC = "0x69", "0x25"
+CC_BOOT, ILIM_BOOT = 100, 500
+CC_FAST = 900
+ILIM = {0: 500, 1: 500, 2: 600, 3: 1500}
+NAMES = {0: "none", 1: "SDP", 2: "CDP", 3: "DCP"}
+BAT = "/sys/class/power_supply/max170xx_battery/"
+
+def bus():
+    d = glob.glob("/sys/bus/i2c/devices/*-0066")   # bus numbers shift; never hardcode
+    return os.path.basename(d[0]).split("-")[0] if d else None
+def rd(b, a, r):
+    return int(subprocess.run(["i2cget", "-y", "-f", b, a, hex(r)], capture_output=True, text=True, check=True).stdout, 16)
+def wr(b, a, r, v):
+    subprocess.run(["i2cset", "-y", "-f", b, a, hex(r), hex(v)], check=True)
+def apply(b, cc, ilim):
+    changed = False
+    cur = rd(b, CHG, 0xb9); want = (cur & 0xc0) | (cc // 50 if cc > 100 else 0)
+    if cur != want: wr(b, CHG, 0xb9, want); changed = True
+    cur = rd(b, CHG, 0xc0); want = (cur & 0x80) | (ilim // 25 - 1)
+    if cur != want: wr(b, CHG, 0xc0, want); changed = True
+    return changed
+def restore(*_):
+    b = bus()
+    if b:
+        try: apply(b, CC_BOOT, ILIM_BOOT); print("restored bootloader charge settings", flush=True)
+        except Exception as e: print("restore failed:", e, flush=True)
+    sys.exit(0)
+signal.signal(signal.SIGTERM, restore); signal.signal(signal.SIGINT, restore)
+
+last = None
+while True:
+    try:
+        b = bus()
+        if b:
+            vbus = rd(b, CHG, 0xb2) & 0x40            # CHGIN valid
+            typ = rd(b, USBC, 0x08) & 3 if vbus else 0
+            temp = int(open(BAT + "temp").read()) / 10
+            ok = 0 <= temp <= 45
+            cc, ilim = (CC_FAST, ILIM[typ]) if vbus and ok else (CC_BOOT, ILIM_BOOT)
+            apply(b, cc, ilim)
+            state = (bool(vbus), typ, ok)
+            if state != last:
+                print(f"source={'yes' if vbus else 'no'} type={NAMES[typ]} temp={temp:.1f}C -> charge {cc} mA, input {ilim} mA", flush=True)
+                last = state
+    except Exception as e:
+        print("error:", e, flush=True)
+    time.sleep(5)

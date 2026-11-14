@@ -1,0 +1,22 @@
+STAGE 2 -- serial console + UFS + hands-free self-flash
+date   2026-11-08T18:14:59+00:00
+image  sha256 e3e91939e7d14ebbb8b0c70ea969dcedec6cebf2f865635898884508a380af47
+
+WORKS:
+  interactive root shell on /dev/fold3 (CDC-ACM, g_serial)
+  UFS: /dev/sda..sdf, 100+ partitions, sda19 = boot
+  self-flash: tools/selfflash.py  (~40s, sha256 verified on device)
+  reboot -f    -> warm reset, comes back reliably
+  poweroff -f  -> UNRELIABLE: came back once via VBUS, then did not.
+                  Do not use it as the loop's reboot step.
+
+THE LOOP (no Download Mode, no heimdall -- but see step 3):
+  1  build          ./tools/build-kernel.sh && ./tools/assemble-boot.sh
+  2  flash          python3 -I tools/selfflash.py images/q2q-stage1-boot.img
+  3  reboot         python3 -I tools/ser.py 'reboot -f'
+                    *** STILL NEEDS A PHYSICAL REPLUG ***
+                    Both reboot -f and poweroff -f drop the gadget and it
+                    does not re-enumerate on its own. Unresolved.
+  4  read           python3 -I tools/ser.py 'dmesg | tail -40'
+
+RESCUE: heimdall from Download Mode, rescue/boot-stock-magisk.img

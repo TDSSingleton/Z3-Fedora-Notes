@@ -1,0 +1,12 @@
+stage11 on top of stage10 (modem+IPA): fold switch with a real kernel driver.
+date: 2026-11-13T17:00:50+00:00
+boot image sha256: c485ec951d0a0348e43059b60b71c61f1573def6f646b69314f4e748233dbc42
+DTB: i2c-fold-hall (TLMM 104/105) + hall-sensor@10 (int TLMM 80), main S2MPB02 pmic@59 with ldo8 only.
+Modules, install BEFORE flashing the DTB:
+  /lib/modules/<rel>/extra/ak09970-fold.ko        (new)
+  /lib/modules/<rel>/extra/s2mpb02-regulator.ko   (now knows LDO8)
+  /lib/modules/<rel>/kernel/drivers/gpu/drm/panel/panel-samsung-s6e3xa2.ko (fold_blank attribute)
+Userspace: fold3-fold-watch(.service) in fold/; fold/akm-bb.py is the /dev/mem prototype tool, no longer installed.
+Verified on device: driver probes ("phone is open"), watcher attached, WiFi/LTE/sensors/both panels up.
+NOT verified: a physical close/open; panel visibly black when blanked.
+Note: adding the bus renumbered i2c: main pmic i2c-0, fold hall i2c-1, sub pmic i2c-2.

@@ -1,0 +1,18 @@
+--- a/networking/tls_aesgcm.c
++++ b/networking/tls_aesgcm.c
+@@ -6,6 +6,15 @@
+ 
+ #include "tls.h"
+ 
++/*
++ * busybox 1.36.1 uses LONG_BIT here without defining it. glibc only exposes
++ * it from <limits.h> under __USE_XOPEN, which this file does not request, so
++ * newer glibc breaks the build. Derive it from the compiler instead.
++ */
++#ifndef LONG_BIT
++#define LONG_BIT (__SIZEOF_LONG__ * 8)
++#endif
++
+ typedef uint8_t byte;
+ typedef uint32_t word32;
+ #define XMEMSET memset

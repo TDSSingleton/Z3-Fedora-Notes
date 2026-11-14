@@ -1,0 +1,49 @@
+diff --git a/drivers/usb/gadget/function/u_serial.c b/drivers/usb/gadget/function/u_serial.c
+index cdd1dfc66..054bd49fc 100644
+--- a/drivers/usb/gadget/function/u_serial.c
++++ b/drivers/usb/gadget/function/u_serial.c
+@@ -760,6 +760,21 @@ static ssize_t gs_write(struct tty_struct *tty, const u8 *buf, size_t count)
+ 			port->port_num, tty, count);
+ 
+ 	spin_lock_irqsave(&port->port_lock, flags);
++
++	/*
++	 * With no host enumerated there is nothing that will ever drain this
++	 * port: the fifo fills, gs_write_room() then reports zero and the tty
++	 * layer blocks the writer indefinitely. On a board whose only console
++	 * is this gadget that stops the boot -- every write to /dev/console,
++	 * including systemd's status output, hangs until a USB host appears.
++	 * Behave like a console instead and drop the data on the floor.
++	 */
++	if (!port->port_usb) {
++		kfifo_reset(&port->port_write_buf);
++		spin_unlock_irqrestore(&port->port_lock, flags);
++		return count;
++	}
++
+ 	if (count)
+ 		count = kfifo_in(&port->port_write_buf, buf, count);
+ 
+@@ -791,6 +806,12 @@ static int gs_put_char(struct tty_struct *tty, u8 ch)
+ 		port->port_num, tty, ch, __builtin_return_address(0));
+ 
+ 	spin_lock_irqsave(&port->port_lock, flags);
++	if (!port->port_usb) {
++		/* no host: discard, see gs_write() */
++		kfifo_reset(&port->port_write_buf);
++		spin_unlock_irqrestore(&port->port_lock, flags);
++		return 1;
++	}
+ 	status = kfifo_put(&port->port_write_buf, ch);
+ 	spin_unlock_irqrestore(&port->port_lock, flags);
+ 
+@@ -831,6 +852,9 @@ static unsigned int gs_write_room(struct tty_struct *tty)
+ 	spin_lock_irqsave(&port->port_lock, flags);
+ 	if (port->port_usb)
+ 		room = kfifo_avail(&port->port_write_buf);
++	else
++		/* no host: gs_write() discards, so always claim space */
++		room = kfifo_size(&port->port_write_buf);
+ 	spin_unlock_irqrestore(&port->port_lock, flags);
+ 
+ 	pr_vdebug("gs_write_room: (%d,%p) room=%u\n",

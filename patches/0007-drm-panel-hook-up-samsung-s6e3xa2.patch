@@ -1,0 +1,40 @@
+drm/panel: hook up the Samsung S6E3XA2 (Galaxy Z Fold 3 inner panel)
+
+Kconfig and Makefile entries only. The driver source is kept outside the
+tree as panel-work/panel-samsung-s6e3xa2.c and is copied to
+drivers/gpu/drm/panel/ by tools/setup-sources.sh; it is not upstream.
+
+---
+diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
+index 3eac4d0f8..890532f0d 100644
+--- a/drivers/gpu/drm/panel/Kconfig
++++ b/drivers/gpu/drm/panel/Kconfig
+@@ -950,6 +950,19 @@ config DRM_PANEL_SAMSUNG_S6E3HA2
+ 	depends on BACKLIGHT_CLASS_DEVICE
+ 	select VIDEOMODE_HELPERS
+ 
++config DRM_PANEL_SAMSUNG_S6E3XA2
++	tristate "Samsung S6E3XA2 AMF755ZE01 foldable AMOLED panel"
++	depends on GPIOLIB
++	depends on OF
++	depends on DRM_MIPI_DSI
++	depends on BACKLIGHT_CLASS_DEVICE
++	select DRM_DISPLAY_HELPER
++	select DRM_DISPLAY_DSC_HELPER
++	help
++	  Say Y or M here if you want to enable support for the Samsung
++	  S6E3XA2 (AMF755ZE01) 2208x1768 command-mode AMOLED panel with DSC,
++	  as fitted to the inner display of the Galaxy Z Fold 3 (SM-F926B).
++
+ config DRM_PANEL_SAMSUNG_S6E3HA8
+ 	tristate "Samsung S6E3HA8 DSI video mode panel"
+ 	depends on GPIOLIB
+diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
+index c2c5cf817..75a9a9168 100644
+--- a/drivers/gpu/drm/panel/Makefile
++++ b/drivers/gpu/drm/panel/Makefile
+@@ -131,3 +131,4 @@ obj-$(CONFIG_DRM_PANEL_VISIONOX_VTDR6130) += panel-visionox-vtdr6130.o
+ obj-$(CONFIG_DRM_PANEL_VISIONOX_R66451) += panel-visionox-r66451.o
+ obj-$(CONFIG_DRM_PANEL_WIDECHIPS_WS2401) += panel-widechips-ws2401.o
+ obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
++obj-$(CONFIG_DRM_PANEL_SAMSUNG_S6E3XA2) += panel-samsung-s6e3xa2.o

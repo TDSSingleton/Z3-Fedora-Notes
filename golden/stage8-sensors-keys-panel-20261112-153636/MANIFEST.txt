@@ -1,0 +1,12 @@
+stage8 -- 2026-11-12T15:36:36+00:00
+boot image sha256: d7480e96b8859bf34d6d59ece61f8340cf93ecc57af5056d481c741ffddef437
+Verified on device 2026-11-12:
+  * volume-up (gpio-keys, PM8350 gpio6) -- user confirmed
+  * panel display-on fix (.enable sends 0x29) -- screen returns after blank
+  * SLPI boots; accel, magnetometer, light read via ssccli on a clean boot
+    (needs pm8350c_l2 + s2mpb02-sub ldo9 always-on, hexagonrpcd-sdsp.service)
+Needs alongside the boot image: s2mpb02-regulator.ko (LDO9 support) in
+/lib/modules/<rel>/extra and panel-samsung-s6e3xa2.ko in the module tree.
+pm8350c_l9 is absent from this image; a later finding showed it is safe at an on-grid voltage (2.904 V).
+Userspace on the phone (not captured here): hexagonrpc (1 local patch),
+libssc, /usr/share/qcom/sm8350/samsung/q2q, /lib/firmware/.../slpi.*

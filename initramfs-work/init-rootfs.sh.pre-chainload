@@ -1,0 +1,72 @@
+#!/bin/sh
+# Stage 4 init: mount the real Fedora root on sda37 and hand over to systemd.
+#
+# Why this is a userspace step at all: our initramfs is embedded inside
+# uniLoader, so the kernel always unpacks it and runs THIS file. It never looks
+# at root= on the command line. The pivot has to happen here.
+#
+# Every failure path below ends in a busybox shell rather than a reboot or a
+# panic. On this device a reboot drops the USB gadget and needs a physical
+# cable replug, so an unexplained reboot loop is genuinely expensive. A shell
+# on ttyGS0 with a diagnostic printed above it is worth far more.
+
+ROOTDEV=/dev/sda37
+SUBVOL=root
+
+/bin/busybox mkdir -p /proc /sys /dev /tmp /run /newroot
+/bin/busybox mount -t proc     proc     /proc 2>/dev/null
+/bin/busybox mount -t sysfs    sysfs    /sys  2>/dev/null
+/bin/busybox mount -t devtmpfs devtmpfs /dev  2>/dev/null
+/bin/busybox mount -t tmpfs    tmpfs    /tmp  2>/dev/null
+
+echo
+echo "==============================================================="
+echo "  Galaxy Z Fold 3 (SM-F926B / q2q)  --  mainline Linux"
+echo "  $( /bin/busybox uname -srm )"
+echo "  stage 4: handing off to the real root filesystem"
+echo "==============================================================="
+echo
+
+bail() {
+	echo
+	echo "!! $1"
+	echo "!! staying in the initramfs. Block devices the kernel found:"
+	/bin/busybox ls /dev/sd* 2>/dev/null || echo "   (none -- UFS did not probe at all)"
+	echo
+	exec /bin/busybox sh
+}
+
+# UFS probes asynchronously: the node does not exist the moment init starts.
+n=0
+while [ ! -b "$ROOTDEV" ]; do
+	n=$(( n + 1 ))
+	[ "$n" -gt 30 ] && break
+	[ "$n" = 1 ] && printf "waiting for %s " "$ROOTDEV"
+	printf "."
+	/bin/busybox sleep 1
+done
+[ "$n" -gt 1 ] && echo
+
+[ -b "$ROOTDEV" ] || bail "$ROOTDEV never appeared after 30s"
+
+echo "mounting $ROOTDEV (btrfs, subvol=$SUBVOL) ..."
+/bin/busybox mount -t btrfs -o rw,subvol="$SUBVOL",compress=zstd:1 "$ROOTDEV" /newroot \
+	|| bail "mount failed -- is BTRFS_FS built in, and is the image written?"
+
+INIT=/sbin/init
+[ -e "/newroot$INIT" ] || INIT=/usr/lib/systemd/systemd
+[ -e "/newroot$INIT" ] || bail "mounted, but no init inside: $( /bin/busybox ls /newroot )"
+
+# Carry the API filesystems over instead of letting systemd re-mount them.
+# /dev matters most: systemd logs to /dev/console long before it would mount
+# devtmpfs itself, and losing that window loses the only output we have.
+for m in dev proc sys; do
+	/bin/busybox mkdir -p "/newroot/$m"
+	/bin/busybox mount -o move "/$m" "/newroot/$m" 2>/dev/null
+done
+
+echo "switch_root -> $ROOTDEV subvol=$SUBVOL, init=$INIT"
+echo
+/bin/busybox sync
+exec /bin/busybox switch_root /newroot "$INIT" \
+	|| bail "switch_root itself failed"
