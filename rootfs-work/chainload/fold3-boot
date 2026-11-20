@@ -4,17 +4,104 @@
 #   fold3-boot next <entry>       boot <entry> once, then go back to the default
 #   fold3-boot default <entry>    boot <entry> every time (falls back by itself if it fails to come up)
 #   fold3-boot embedded           always boot the kernel inside boot.img
+#   fold3-boot ready <release>    mark a module tree as complete (see below)
+# Add -f/--force to default/next to skip the module check.
 B=/boot/fold3
+
+# ---------------------------------------------------------------------------
+# WHY THERE IS A MODULE CHECK (added 2026-11-16, docs/18)
+#
+# The pending/default.failed machinery catches a kernel that FAILS TO BOOT.
+# It cannot catch the failure mode that arrives with Fedora's own kernels: one
+# that boots perfectly into a system with no display, no touch and no WiFi,
+# because its modules were never built. `pending` gets deleted on schedule, the
+# boot counts as a success, and the phone is a brick with a backlight.
+#
+# Existence of /lib/modules/<release> is NOT enough: a Fedora kernel installs
+# its own module tree from the RPM, so the directory is there and complete as
+# far as Fedora is concerned, while every driver THIS phone needs is missing.
+# So the test is an explicit sentinel, extra/.fold3-ready, written by whatever
+# installs our out-of-tree module set for that release. It means "the host step
+# was done for this kernel", which is the thing that cannot be inferred.
+#
+# `next` only warns: it is the deliberate one-shot path, and that is exactly
+# how a new kernel SHOULD be tried, with the fallback underneath it.
+# `default` refuses, because it is the sticky one.
+# ---------------------------------------------------------------------------
+
+# Kernel release of an entry. Cached in the entry's `release` file; derived
+# from the Image's Linux banner otherwise (the Image is uncompressed, so the
+# banner is plain text in it) and cached for next time.
+entry_release() {
+	local e="$1" r
+	if [ -s "$B/entries/$e/release" ]; then
+		head -n1 "$B/entries/$e/release"; return
+	fi
+	r=$(strings -a "$B/entries/$e/Image" 2>/dev/null \
+	    | sed -n 's/^Linux version \([^ ]\+\) .*/\1/p' | head -n1)
+	[ -n "$r" ] || return 1
+	printf '%s\n' "$r" > "$B/entries/$e/release" 2>/dev/null
+	printf '%s\n' "$r"
+}
+
+# 0 = our module set is installed for this release, 1 = not, 2 = cannot tell
+mods_ready() {
+	local r="$1"
+	[ -n "$r" ] || return 2
+	[ -f "/lib/modules/$r/modules.dep" ] || return 1
+	[ -e "/lib/modules/$r/extra/.fold3-ready" ] || return 1
+	return 0
+}
+
+FORCE=0
+for a in "$@"; do case "$a" in -f|--force) FORCE=1 ;; esac; done
+set -- $(printf '%s\n' "$@" | grep -vE '^(-f|--force)$')
+
 case "$1" in
 status)
-	if grep -q "CHAINLOADED" <(dmesg) 2>/dev/null; then echo "running: chainloaded kernel $(uname -r)"; else echo "running: embedded kernel $(uname -r) (from boot.img)"; fi
+	# journalctl -k, NOT dmesg: the ring buffer wraps within minutes here
+	# because the SLPI re-pulses its handover several times a second, so by
+	# the time anyone runs this the marker is long gone and every chainloaded
+	# boot misreports itself as "embedded".
+	if journalctl -k -b --no-pager 2>/dev/null | grep -q "CHAINLOADED"; then echo "running: chainloaded kernel $(uname -r)"; else echo "running: embedded kernel $(uname -r) (from boot.img)"; fi
 	echo "default: $(cat $B/default 2>/dev/null || echo '(embedded)')$( [ -f $B/default.failed ] && echo "   [failed earlier: $(cat $B/default.failed)]")"
 	echo "next:    $(cat $B/next 2>/dev/null || echo -)"
 	echo "pending: $(cat $B/pending 2>/dev/null || echo -)"
-	echo "entries:"; for e in $B/entries/*/; do [ -f "$e/Image" ] && echo "  $(basename $e)  $(du -sh $e | cut -f1)"; done ;;
+	echo "entries:"
+	for e in $B/entries/*/; do
+		[ -f "$e/Image" ] || continue
+		n=$(basename "$e"); r=$(entry_release "$n") || r="?"
+		mods_ready "$r"
+		case $? in
+			0) m="modules ok" ;;
+			1) m="NO MODULE SET -- would boot blind" ;;
+			*) m="release unknown" ;;
+		esac
+		printf '  %-14s %-6s %-28s %s\n' "$n" "$(du -sh $e | cut -f1)" "$r" "$m"
+	done ;;
 next|default)
 	[ -f "$B/entries/$2/Image" ] || { echo "no such entry: $2"; exit 1; }
+	r=$(entry_release "$2") || r=""
+	mods_ready "$r"; st=$?
+	if [ $st != 0 ] && [ "$FORCE" != 1 ]; then
+		[ -n "$r" ] && what="release $r" || what="an unreadable release"
+		echo "!! entry '$2' has $what with no fold3 module set"
+		echo "   missing: /lib/modules/$r/extra/.fold3-ready"
+		echo "   Such a kernel BOOTS -- with no display, no touch and no WiFi --"
+		echo "   so the automatic fallback will not rescue it."
+		if [ "$1" = default ]; then
+			echo "   Refusing. Build and install its modules, then"
+			echo "   'fold3-boot ready $r'. Or override with: fold3-boot default $2 -f"
+			exit 2
+		fi
+		echo "   Continuing anyway because 'next' is one-shot and falls back."
+	fi
 	echo "$2" > $B/$1; [ "$1" = default ] && rm -f $B/default.failed $B/pending; sync; echo "$1 -> $2" ;;
 embedded) rm -f $B/default $B/next $B/pending; sync; echo "default -> embedded kernel" ;;
-*) sed -n 2,6p "$0"; exit 2 ;;
+ready)
+	[ -n "$2" ] || { echo "usage: fold3-boot ready <release>"; exit 2; }
+	[ -d "/lib/modules/$2" ] || { echo "no such module tree: /lib/modules/$2"; exit 1; }
+	mkdir -p "/lib/modules/$2/extra" && : > "/lib/modules/$2/extra/.fold3-ready" && sync
+	echo "marked /lib/modules/$2 as having the fold3 module set" ;;
+*) sed -n 2,8p "$0"; exit 2 ;;
 esac

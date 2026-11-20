@@ -1,0 +1,128 @@
+From: Fold 3 mainline port
+Subject: [PATCH] media: qcom: camss: park clocks at XO before collapsing the
+ power domain
+
+camss raises its clock rates on the way up and has never lowered them again,
+so a power domain is always collapsed with its RCGs still programmed for the
+last streaming rate. On SM8350 that permanently wedges the IFE GDSC: the
+power-down reports success, but every later power-up times out with PWR_ON
+never asserting, the domain's virtual device drops into runtime-PM error, and
+from then on every stream start fails with -EINVAL out of device_link_add() in
+vfe_pm_domain_on(). Only a reboot recovers it, so in practice the camera can
+be used exactly once per boot -- and because libcamera only ever opens VFE0,
+that is one libcamera session per boot.
+
+It was isolated by bisecting a camss session against the raw hardware through
+/dev/mem, with camss out of the loop:
+
+  - the GDSC alone cycles off/on indefinitely (50-70us per power-up)
+  - so does it with all six IFE clock branches ungated and regated
+  - so does it after a VFE global reset, after a WM_CGC_OVERRIDE write, after
+    running the CSID RDI path, and after enabling the VFE write master
+  - a full camss session wedges it even with all CSID and VFE programming
+    skipped, and even streaming from the CSID's own test generator with no
+    sensor, no CSIPHY and zero frames captured
+  - a full camss session with clk_set_rate() skipped does NOT wedge it:
+    four power cycles, GDSC healthy, and it still cycles by hand afterwards
+
+which leaves the rate setting itself. Restoring the lowest rate in the
+resource table is not enough: for the SM8350 IFE clocks that is already
+338 MHz off a PLL and wedges the GDSC just as 720 MHz does. The state that
+demonstrably survives a collapse is the one the clocks boot in, 19.2 MHz
+straight off the crystal, which is exactly what a session with clk_set_rate()
+skipped leaves behind.
+
+So park every clock that has a rate table at XO before gating it and dropping
+the domain. Clocks whose table is { 0 } are left alone.
+
+Tested on a Galaxy Z Fold 3 (SM-F926B, SM8350) with the rear ultrawide
+IMX258: 18 consecutive full-resolution raw captures in one boot where the
+first had previously been the only one possible, two libcamera sessions in
+one boot, and zero "stuck at" or "Failed to power up" messages.
+
+diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
+index 2123f6388..ae9e882b8 100644
+--- a/drivers/media/platform/qcom/camss/camss.c
++++ b/drivers/media/platform/qcom/camss/camss.c
+@@ -4585,6 +4912,45 @@ int camss_enable_clocks(int nclocks, struct camss_clock *clock,
+  * @nclocks: Number of clocks in clock array
+  * @clock: Clock array
+  */
++/*
++ * camss_restore_clock_rates - Put clocks back to their lowest rate
++ * @nclocks: Number of clocks in the array
++ * @clock: Clock array
++ *
++ * Called before the clocks are gated and the power domain collapsed.
++ *
++ * camss raises these rates on the way up and has never lowered them again, so
++ * a domain is always collapsed with its RCGs still programmed for the last
++ * streaming rate. On SM8350 that permanently wedges the IFE GDSC: the
++ * power-down looks clean, but every later power-up times out with PWR_ON
++ * never asserting and only a reboot recovers it.
++ *
++ * That was isolated by bisecting a camss session against the raw hardware:
++ * driving the GDSC and the IFE clocks straight through /dev/mem cycles
++ * indefinitely, and so does a full camss session with clk_set_rate() skipped
++ * (four cycles, GDSC healthy), while a session that sets the rates wedges it
++ * on the second power-up -- even with all CSID and VFE programming skipped.
++ *
++ * Restore XO rather than the lowest entry in the resource table: for the
++ * SM8350 IFE clocks that lowest entry is already 338 MHz off a PLL, and
++ * leaving them there wedges the GDSC just as 720 MHz does. The state that
++ * demonstrably survives a collapse is the one the clocks boot in, 19.2 MHz
++ * straight off the crystal, which is what a session with clk_set_rate()
++ * skipped entirely leaves behind.
++ *
++ * Entries of { 0 } mean "leave this clock alone" and are skipped.
++ */
++#define CAMSS_CLOCK_PARK_RATE	19200000
++
++void camss_restore_clock_rates(int nclocks, struct camss_clock *clock)
++{
++	int i;
++
++	for (i = 0; i < nclocks; i++)
++		if (clock[i].nfreqs && clock[i].freq[0])
++			clk_set_rate(clock[i].clk, CAMSS_CLOCK_PARK_RATE);
++}
++
+ void camss_disable_clocks(int nclocks, struct camss_clock *clock)
+ {
+ 	int i;
+diff --git a/drivers/media/platform/qcom/camss/camss.h b/drivers/media/platform/qcom/camss/camss.h
+index 93d691c8a..442a1ab37 100644
+--- a/drivers/media/platform/qcom/camss/camss.h
++++ b/drivers/media/platform/qcom/camss/camss.h
+@@ -166,6 +167,7 @@ struct parent_dev_ops {
+ void camss_add_clock_margin(u64 *rate);
+ int camss_enable_clocks(int nclocks, struct camss_clock *clock,
+ 			struct device *dev);
++void camss_restore_clock_rates(int nclocks, struct camss_clock *clock);
+ void camss_disable_clocks(int nclocks, struct camss_clock *clock);
+ struct media_pad *camss_find_sensor_pad(struct media_entity *entity);
+ s64 camss_get_link_freq(struct media_entity *entity, unsigned int bpp,
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe.c b/drivers/media/platform/qcom/camss/camss-vfe.c
+index 319d19158..b2b87fbbd 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe.c
++++ b/drivers/media/platform/qcom/camss/camss-vfe.c
+@@ -1156,6 +1157,7 @@ void vfe_put(struct vfe_device *vfe)
+ 			vfe->was_streaming = 0;
+ 			vfe->res->hw_ops->vfe_halt(vfe);
+ 		}
++		camss_restore_clock_rates(vfe->nclocks, vfe->clock);
+ 		camss_disable_clocks(vfe->nclocks, vfe->clock);
+ 		pm_runtime_put_sync(vfe->camss->dev);
+ 		vfe->res->hw_ops->pm_domain_off(vfe);
+diff --git a/drivers/media/platform/qcom/camss/camss-csid.c b/drivers/media/platform/qcom/camss/camss-csid.c
+index 48459b46a..92d073c53 100644
+--- a/drivers/media/platform/qcom/camss/camss-csid.c
++++ b/drivers/media/platform/qcom/camss/camss-csid.c
+@@ -738,6 +738,7 @@ static int csid_set_power(struct v4l2_subdev *sd, int on)
+ 		csid->res->hw_ops->hw_version(csid);
+ 	} else {
+ 		disable_irq(csid->irq);
++		camss_restore_clock_rates(csid->nclocks, csid->clock);
+ 		camss_disable_clocks(csid->nclocks, csid->clock);
+ 		regulator_bulk_disable(csid->num_supplies,
+ 				       csid->supplies);

@@ -183,8 +183,15 @@ your own kernel RPM, with vendor firmware packaged or extracted via `droid-juice
 
 ## Deliberately out of scope
 
-Cameras (no `camss` for SM8350, and unlock may disable them anyway), fingerprint, S Pen,
-UWB, NFC, wireless charging, fast charging, DeX. Audio is not a stated goal but is
+Fingerprint, S Pen, UWB, NFC, wireless charging, fast charging, DeX.
+
+**Cameras are *in progress*, and were never impossible.** The earlier wording here
+("no `camss` for SM8350, and unlock may disable them anyway") was wrong on the second
+half -- the cameras work fine under Android on this unlocked, Knox-tripped device --
+and overstated the first. `camcc-sm8350` is now written and verified on hardware.
+The full record is [HANDBOOK.md §33](HANDBOOK.md), with the rails, topology and
+tooling in [camera-work/](camera-work/); [05-research-gaps.md](05-research-gaps.md)
+Q3/Q3a has the evidence trail. Audio is not a stated goal but is
 largely upstream (`wcd938x`, `wsa883x`, `cs35l41`) and would be comparatively cheap if
 you want it.
 

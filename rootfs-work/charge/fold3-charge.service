@@ -1,5 +1,9 @@
 [Unit]
-Description=Fold 3: raise the bootloader's charge current while a charger is attached
+Description=Fold 3: charging policy for the max77705 charger driver
+# The driver is autoloaded by udev from the DT compatible; the service waits
+# for its power_supply device and falls back to raw i2c if it never appears.
+Wants=systemd-udev-settle.service
+After=systemd-udev-settle.service
 
 [Service]
 ExecStart=/usr/local/sbin/fold3-charge

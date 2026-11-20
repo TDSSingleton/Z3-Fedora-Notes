@@ -1,0 +1,21 @@
+# Give the active seat session access to the DMA-BUF heaps.
+#
+# libcamera's SoftwareIsp (DebayerCpu) allocates its output buffers through
+# DmaBufAllocator, which opens /dev/dma_heap/* (or /dev/udmabuf).  Without a
+# provider it logs
+#
+#     ERROR DmaBufAllocator dma_buf_allocator.cpp:119 Could not open any dma-buf provider
+#     ERROR SoftwareIsp     software_isp.cpp:90       Failed to create DmaBufAllocator object
+#     WARN  SimplePipeline  simple.cpp:620            Failed to create software ISP, disabling software debayering
+#
+# and the camera is exposed as raw Bayer only, which no application can
+# display.  WirePlumber's libcamera monitor hits this too, so the PipeWire
+# node never negotiates a format and every client fails with "target not
+# found".
+#
+# The kernel creates /dev/dma_heap/system as root:video 0660 and systemd-logind
+# does not tag dma_heap for uaccess the way it tags /dev/video*, so a normal
+# desktop user has no access.  Add the tag here.
+#
+# Install to /etc/udev/rules.d/.  See HANDBOOK.md 33.13.
+SUBSYSTEM=="dma_heap", TAG+="uaccess", GROUP="video", MODE="0660"

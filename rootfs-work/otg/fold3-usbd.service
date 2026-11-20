@@ -1,0 +1,13 @@
+[Unit]
+Description=Fold 3: offer USB host mode when a device is plugged into the USB-C port
+# Deliberately NOT enabled by default: while it runs it will switch the port
+# out of gadget mode on its own, which takes the USB serial console with it.
+# Enable it for daily use, stop it while doing kernel work over the cable.
+
+[Service]
+ExecStart=/usr/local/sbin/fold3-usbd
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

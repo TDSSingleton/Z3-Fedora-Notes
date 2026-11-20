@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""A bare StatusNotifierItem, so we can see what a tray entry looks like here.
+
+No behaviour: it registers an icon in Plasma's system tray and logs the clicks
+it receives. The point is to judge the look and the interaction before
+building the real USB-C control on top of it.
+
+Must run as the session user -- it has to own a name on that user's session
+bus. Plasma's org.kde.StatusNotifierWatcher is already up with a host
+registered, so registration is all it takes.
+
+ItemIsMenu = False means a left click calls Activate() rather than opening a
+menu, which is the simplest thing that could work. A real menu needs
+com.canonical.dbusmenu served on the Menu path (the Dbusmenu typelib is
+installed, so that is available when we want it).
+"""
+import os
+import signal
+
+import dbus
+import dbus.service
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib
+
+SNI = "org.kde.StatusNotifierItem"
+PATH = "/StatusNotifierItem"
+
+
+class Item(dbus.service.Object):
+    def __init__(self, bus_name):
+        super().__init__(bus_name, PATH)
+        self.props = {
+            "Category": "Hardware",
+            "Id": "fold3-usb-demo",
+            "Title": "USB-C",
+            "Status": "Active",            # Passive would hide it
+            "WindowId": dbus.Int32(0),
+            # NB: there is NO "usb" icon in Breeze -- an SNI with a missing
+            # icon name registers fine and renders as nothing at all, which
+            # looks exactly like "the tray item does not work".
+            "IconName": os.environ.get("TRAY_ICON", "audio-headphones"),
+            "OverlayIconName": "",
+            "AttentionIconName": "",
+            "AttentionMovieName": "",
+            "IconThemePath": "",
+            "ItemIsMenu": False,
+            "Menu": dbus.ObjectPath("/NO_DBUSMENU"),
+            "IconPixmap": dbus.Array([], signature="(iiay)"),
+            "AttentionIconPixmap": dbus.Array([], signature="(iiay)"),
+            "OverlayIconPixmap": dbus.Array([], signature="(iiay)"),
+            "ToolTip": dbus.Struct(
+                ("audio-headphones", dbus.Array([], signature="(iiay)"),
+                 "USB-C", "Tray item demo -- no behaviour yet"),
+                signature="sa(iiay)ss"),
+        }
+
+    # --- properties
+    @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature="ss",
+                         out_signature="v")
+    def Get(self, iface, prop):
+        return self.props.get(prop, "")
+
+    @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature="s",
+                         out_signature="a{sv}")
+    def GetAll(self, iface):
+        return self.props if iface == SNI else {}
+
+    @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature="ssv")
+    def Set(self, iface, prop, value):
+        pass
+
+    # --- what the shell calls
+    @dbus.service.method(SNI, in_signature="ii")
+    def Activate(self, x, y):
+        print(f"Activate at {x},{y}  (left click)", flush=True)
+
+    @dbus.service.method(SNI, in_signature="ii")
+    def SecondaryActivate(self, x, y):
+        print(f"SecondaryActivate at {x},{y}  (middle click)", flush=True)
+
+    @dbus.service.method(SNI, in_signature="ii")
+    def ContextMenu(self, x, y):
+        print(f"ContextMenu at {x},{y}  (right click / long press)", flush=True)
+
+    @dbus.service.method(SNI, in_signature="is")
+    def Scroll(self, delta, orientation):
+        print(f"Scroll {delta} {orientation}", flush=True)
+
+    # --- signals the shell listens for
+    @dbus.service.signal(SNI, signature="")
+    def NewIcon(self):
+        pass
+
+    @dbus.service.signal(SNI, signature="")
+    def NewToolTip(self):
+        pass
+
+    @dbus.service.signal(SNI, signature="")
+    def NewTitle(self):
+        pass
+
+    @dbus.service.signal(SNI, signature="s")
+    def NewStatus(self, status):
+        pass
+
+
+def main():
+    DBusGMainLoop(set_as_default=True)
+    bus = dbus.SessionBus()
+    name = f"{SNI}-{os.getpid()}-1"          # the conventional naming
+    bus_name = dbus.service.BusName(name, bus)
+    item = Item(bus_name)
+
+    watcher = bus.get_object("org.kde.StatusNotifierWatcher",
+                             "/StatusNotifierWatcher")
+    watcher.RegisterStatusNotifierItem(
+        name, dbus_interface="org.kde.StatusNotifierWatcher")
+    print(f"registered {name} at {PATH}; icon "
+          f"'{item.props['IconName']}' should be in the tray", flush=True)
+
+    loop = GLib.MainLoop()
+    signal.signal(signal.SIGTERM, lambda *_: loop.quit())
+    loop.run()
+
+
+if __name__ == "__main__":
+    main()

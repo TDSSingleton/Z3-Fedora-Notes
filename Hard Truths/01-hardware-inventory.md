@@ -93,7 +93,7 @@ secondary), which is not a topology you would build for a 2:1 mux.
 | DPU / MDSS | ✅ `qcom,sm8350-mdss`, `mdss_mdp` | Catalog `dpu_7_0_sm8350.h`: **4 DSC blocks, 4 INTFs** |
 | DSI controllers | ✅ **both** `mdss_dsi0` + `mdss_dsi1` | `qcom,sm8350-dsi-ctrl` |
 | DSI PHYs | ✅ both | `qcom,sm8350-dsi-phy-5nm` |
-| DisplayPort | ✅ `mdss_dp` | For USB-C video out |
+| DisplayPort | ✅ `mdss_dp` | USB-C video out. **Enabled and working as far as a trained link + EDID + modeset** (2026-11-19), but the terminating HPD bridge is ours, not upstream -- `patches/0013`. See HANDBOOK 37 |
 | Display clock controller | ✅ **`dispcc-sm8250.c`** | Multi-SoC driver; claims `qcom,sm8350-dispcc`. `CONFIG_SM_DISPCC_8250`. |
 | Main panel driver | ❌ none | No `panel-samsung-s6e3xa*` upstream |
 | Cover panel driver | ❌ none | No `panel-samsung-s6e3fab` upstream |
@@ -166,7 +166,7 @@ with no upstream precedent.
 | Dual-battery limiter | `samsung,s2asl01-limiter` (main@38 + sub@39) | Balances the two cells | ❌ none |
 | Battery framework | `samsung,sec-battery`, `samsung,sec-direct-charger`, `samsung,sec-dual-battery` | Samsung's own stack | ❌ (but `BATTERY_SAMSUNG_SDI` upstream carries profile data) |
 | Display PMIC | `samsung,s2dos05pmic` | Panel rails | ✅ `REGULATOR_S2DOS05` |
-| Camera PMIC | `s2mpb02,s2mpb02mfd` | Camera rails + torch | ❌ (out of scope) |
+| Camera PMIC | `s2mpb02,s2mpb02mfd` | Camera rails + torch | ⚠️ **reachable today** — this is the *main* S2MPB02 on `i2c-0`, and `wifi-work/s2mpb02-regulator.c` already drives the sub. Camera LDOs read back **off but pre-programmed to the vendor DT's voltages**, and are writable from userspace (`i2cset -f -y 0 0x59`). Nothing is fused or TZ-owned |
 
 **Practical read:** basic USB-C charging through `max77705_charger` is realistic and is
 your Goal 1. Expect to **lose** fast charging (no `sm5451`), wireless charging (no
@@ -235,7 +235,7 @@ only one is populated on any given unit. Determine which from a running device.
 | `stk,stk3a8x` | Ambient light / proximity | ❌ |
 | `akm` | Magnetometer | partial |
 | `nxp,pca953x` | I²C GPIO expander | ✅ `pca953x` |
-| `qcom,cam-sensor0..13`, `qcom,ois`, `qcom,actuator`, `qcom,eeprom` | Cameras (4 + OIS) | ❌ no `camss` for SM8350 — out of scope |
+| `qcom,cam-sensor0..13`, `qcom,ois`, `qcom,actuator`, `qcom,eeprom` | Cameras (4 + OIS) | ⚠️ **not started, not impossible.** Sensors need `camss` + `camcc` + CCI. But `qcom,eeprom11` (slave 0x51) sits on **`i2c@998000`** and `qcom,ois@51` (slave 0x62) on **`i2c@988000`** — plain QUP GENI buses mainline already drives, and an EEPROM needs no MCLK. That is the cheapest probe of whether the modules are alive |
 
 The hall sensors are how you know whether the device is open or shut, so they matter
 more than their obscurity suggests: Goal 3 ("both screens") implies switching the active

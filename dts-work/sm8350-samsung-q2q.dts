@@ -23,7 +23,9 @@
 
 /dts-v1/;
 
+#include <dt-bindings/clock/qcom,sm8350-camcc.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/qcom,spmi-adc7-pm8350.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/sound/qcom,q6afe.h>
@@ -318,6 +320,22 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
+		/*
+		 * USB3+DP combo PHY vdda-phy (2026-11-19). 912 mV, which is not a
+		 * guess from either direction: the vendor DT's ssphy@88e8000 has
+		 *   vdd-supply = <&pm8350_l1>  (phandle 0xf2 -> rpmh-regulator-ldob1)
+		 *   qcom,vdd-voltage-level = <0 0xdea80 0xdea80>   = 912000 uV
+		 * and sm8350-hdk independently sets vreg_l1b_0p88 to 912-920 mV for
+		 * the same rail. On the 8 mV pmic5 LDO grid, so it cannot be the
+		 * off-grid-voltage failure that takes the whole PMIC probe down.
+		 */
+		pm8350_l1: ldo1 {
+			regulator-name = "pm8350_l1";
+			regulator-min-microvolt = <912000>;
+			regulator-max-microvolt = <912000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
 		/* USB HS PHY vdda33 */
 		pm8350_l2: ldo2 {
 			regulator-name = "pm8350_l2";
@@ -588,7 +606,14 @@
 	 * genuinely TZ-owned set is known.
 	 *
 	 * Freed so far, each for a named reason:
-	 *     5        max77705 interrupt
+	 *     5        nothing of ours. Freed on the belief that it carried the
+	 *              max77705 interrupt; it does not. The vendor DT has
+	 *              max77705,irq-gpio = <&pm8350c_gpios 5 GPIO_ACTIVE_LOW>,
+	 *              i.e. the INTB line is a PM8350C GPIO behind SPMI, not a
+	 *              TLMM line (2026-11-14, confirmed by resolving the phandle
+	 *              in q2q_eur_openx_w00_r03.dts to qcom,pm8350c-gpio). Left
+	 *              freed rather than re-reserved in the same flash as the
+	 *              charger work: nothing requests it, so it is inert.
 	 *     32, 33   qup7 i2c SDA/SCL -- the bus the max77705 sits on.
 	 *              Without these, geni_i2c probes but pinctrl fails:
 	 *                sm8350-tlmm: error -EINVAL: pin-32 (99c000.i2c)
@@ -622,9 +647,50 @@
 	 * non-secure pins in the vendor DT (qupv3_se1/se9_i2c_active), and the
 	 * bootloader already leaves all four muxed to QUP with pull-ups.
 	 */
-	gpio-reserved-ranges = <0 5>, <6 2>, <10 7>, <18 2>, <26 6>, <34 6>,
+	/*
+	 * Freed for the camera MCLK (2026-11-14): 103, CAMIF_MCLK3, the master
+	 * clock the cover camera module (cam-sensor11/13, IMX374) needs at
+	 * 24 MHz before its i2c slave answers. <98 6> covered 98-103 and
+	 * becomes <98 5>. Plain non-secure pin: the vendor's
+	 * cam_sensor_mclk3_active muxes it to function "cam_mclk" from the
+	 * non-secure world, and mainline's pinctrl-sm8350 agrees that
+	 * cam_mclk is gpio103's function 1.
+	 */
+	/*
+	 * Freed for the camera EEPROM probe (2026-11-14): 28/29, the qup6 i2c
+	 * bus that carries the rear module's calibration EEPROM
+	 * (qcom,eeprom11, slave 0xa2 = 7-bit 0x51). Plain non-secure pins --
+	 * the vendor's qupv3_se6_i2c_active muxes both to function "qup6" with
+	 * bias-pull-up and drive-strength 2, which is byte-for-byte what
+	 * upstream's own qup_i2c6_default state already says, so no new
+	 * pinctrl state is needed here.
+	 *
+	 * <26 6> covered 26-31; it becomes <26 2>, <30 2> so only 28/29 open.
+	 */
+	/*
+	 * Freed for the rear ultrawide camera (2026-11-15): 101, 106 and
+	 * 111-114. All five are plain non-secure pins that the vendor kernel
+	 * muxes from the non-secure world, exactly as argued for 103 above:
+	 *
+	 *   101       CAMIF_MCLK1, the IMX258's 19.2 MHz master clock
+	 *             (vendor cam_sensor_mclk1_active, function "cam_mclk";
+	 *             mainline pinctrl-sm8350 agrees cam_mclk is func 1 here).
+	 *   106       UWCAM_RST_N, the module's reset (vendor
+	 *             cam_sensor_active_rst2, function "gpio").
+	 *   111/112   CCI_I2C_DATA2/CLK2 -- hardware CCI1 master 0, the bus the
+	 *             IMX258 and its cal EEPROM sit on (vendor cci2_active).
+	 *   113/114   CCI_I2C_DATA3/CLK3 -- CCI1 master 1 (vendor cci3_active).
+	 *             Declared with the bus but carries nothing we drive yet.
+	 *
+	 * <98 5> covered 98-102 and becomes <98 3>, <102 1> so only 101 opens.
+	 * <106 19> covered 106-124 and becomes <107 4>, <115 10>, which opens
+	 * 106 and 111-114 while leaving 107-110 (CCI0's two masters, for the
+	 * wide and front cameras) still reserved.
+	 */
+	gpio-reserved-ranges = <0 5>, <6 2>, <10 5>, <18 2>, <26 2>, <30 2>, <34 6>,
 			       <42 9>, <52 12>,
-			       <66 2>, <72 4>, <81 1>, <84 10>, <98 6>, <106 19>, <129 24>,
+			       <66 2>, <72 4>, <81 1>, <84 10>, <98 3>, <102 1>,
+			       <107 4>, <115 10>, <129 24>,
 			       <154 11>, <166 5>, <173 30>;
 
 	/*
@@ -636,6 +702,20 @@
 	 *   97  mipi-sel        (panel_xa2_ze01_mipisel_active, was <97 56>)
 	 * Note the reset pin is 24 (vendor qcom,platform-reset-gpio = 0x18).
 	 * An earlier sketch in panel-work/display.dtsi said 14; that was wrong.
+	 */
+
+	/*
+	 * Freed for DisplayPort over USB-C (2026-11-19): 15 and 16, the AUX/SBU
+	 * analog switch, so <10 7> became <10 5>. Both are plain TLMM pins muxed
+	 * to the "gpio" function from the non-secure world in the vendor DT --
+	 * q2q_eur_openx_w00_r08.dts fragment@239:
+	 *   15  sde_dp_aux_sel_{active,suspend}   AUX polarity select
+	 *   16  sde_dp_aux_en_{active,suspend}    switch enable
+	 * The suspend state of 16 is output-HIGH and of 15 output-low, so the
+	 * enable is ACTIVE LOW -- which is how the gpio-sbu-mux node below
+	 * declares it. This is the same reasoning that freed 24/82/97 above: the
+	 * stock non-secure kernel drives them for exactly this purpose, so they
+	 * are provably not TZ-owned.
 	 */
 
 	/*
@@ -899,26 +979,31 @@
 
 /*
  * Battery profile. This is the only thing the mainline max77705 charger reads
- * from DT, and it is deliberately CONSERVATIVE.
+ * from DT, and voltage-max-design-microvolt is load-bearing:
+ * max77705_charger_initialize() feeds it straight into
+ * max77705_set_float_voltage() at every probe, so this number IS the voltage
+ * the pack is charged to.
  *
  * Samsung's own q2q values, for reference:
- *     battery,chg_float_voltage   = 4440 mV
+ *     battery,chg_float_voltage   = 4380 mV  (0x111c, r03)
  *     battery,max_charging_current= 3000 mA
+ *     battery,max_main_limiter_current = 3150 mA  (same for sub)
  *     battery,battery_full_capacity = 4500 mAh
  *     battery,chg_high_temp       = 49.0 C  (recovery 47.0 C)
  *
- * We use 4.2 V instead of 4.44 V. max77705_charger_initialize() feeds
- * voltage-max-design-microvolt straight into max77705_set_float_voltage()
- * (drivers/power/supply/max77705_charger.c:562), so this caps the pack at
- * roughly 75-80% of its rated capacity. For a device that mostly sits on a
- * bench that is strictly better: far from the cell's stress region, and much
- * kinder to a battery we cannot replace.
+ * 4.35 V, not 4.2 V (changed 2026-11-14, user's call). 4.35 V is exactly
+ * where the bootloader leaves the chip -- measured CNFG_04 = 0x13 on a live
+ * device, which decodes to 4350 mV -- so it is the voltage this pack has been
+ * charging to all along, and it is still below Samsung's own 4.38 V. An
+ * earlier revision of this file used 4.2 V for cell longevity, which was a
+ * defensible choice while nothing bound the charger; now that the driver
+ * writes this value, 4.2 V would have been a silent ~20% cut in usable
+ * capacity the moment the charger started binding.
  *
- * Charge CURRENT is not taken from DT at all -- the driver leaves the chip at
- * its 450 mA hardware default, which is 0.1C into a 4500 mAh pack. Gentle,
- * and well under the 500 mA-1 A band we agreed on.
- *
- * Both cells stay connected and no limiter is touched.
+ * Charge CURRENT is not taken from DT at all: the mainline driver never
+ * writes CNFG_02, so the chip keeps whatever it has and policy lives in
+ * userspace (rootfs-work/charge/). Both cells stay connected and no limiter
+ * is touched from here.
  */
 /*
  * Samsung S2DOS05 display sub-PMIC, on a bitbanged i2c bus (TLMM 76/77).
@@ -983,6 +1068,64 @@
 					regulator-name = "sensor_dvdd";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
+				};
+
+				/*
+				 * Rear-camera rails (2026-11-15). Taken from
+				 * the vendor q2q DTS, where qcom,cam-sensor2
+				 * (the IMX258 ultrawide) names exactly these:
+				 *   cam_vdig      -> ldo4   1.2  V
+				 *   cam_vio       -> ldo6   1.8  V
+				 *   cam_vana      -> ldo12  2.7  V
+				 *   cam_v_custom1 -> buck2  1.3  V
+				 * All four hang off the MAIN S2MPB02, not the
+				 * sub one: the camera supplies resolve into the
+				 * s2mpb02_pmic@59 under the vendor's i2c@51,
+				 * whose pins are TLMM 78/79 -- this bus. The
+				 * sub chip is i2c@52 (TLMM 76/77) and carries
+				 * the WLAN and cover-panel rails instead.
+				 *
+				 * ldo4 is a STEP1 LDO: LDO1-5 move in 12.5 mV
+				 * steps and LDO6-18 in 25 mV, both from 600 mV
+				 * (vendor s2mpb02-regulator.c LDO_DESC table).
+				 * Getting that wrong sets a wrong voltage, so
+				 * wifi-work/s2mpb02-regulator.c now carries a
+				 * separate STEP1 macro for it.
+				 */
+				s2mpb02_main_l4: ldo4 {
+					regulator-name = "cam_vdig_uw";
+					regulator-min-microvolt = <1200000>;
+					regulator-max-microvolt = <1200000>;
+				};
+
+				s2mpb02_main_l6: ldo6 {
+					regulator-name = "cam_vio_uw";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+				};
+
+				s2mpb02_main_l12: ldo12 {
+					regulator-name = "cam_vana_uw";
+					regulator-min-microvolt = <2700000>;
+					regulator-max-microvolt = <2700000>;
+				};
+
+				/*
+				 * cam_v_custom1. Shared by every rear sensor in
+				 * the vendor DT (sensor0/1/2/12 all name it),
+				 * i.e. a common rail for the rear camera deck
+				 * rather than a per-sensor supply -- and the
+				 * upstream imx258 driver only takes vana/vdig/
+				 * vif, so no consumer would ever claim it.
+				 * always-on for bringup; revisit once the
+				 * sensor streams and it can be tested by
+				 * removal.
+				 */
+				s2mpb02_main_b2: buck2 {
+					regulator-name = "cam_v_custom1";
+					regulator-min-microvolt = <1300000>;
+					regulator-max-microvolt = <1300000>;
+					regulator-always-on;
 				};
 			};
 		};
@@ -1141,7 +1284,7 @@
 / {
 	battery: battery {
 		compatible = "simple-battery";
-		voltage-max-design-microvolt = <4200000>;
+		voltage-max-design-microvolt = <4350000>;
 		voltage-min-design-microvolt = <3400000>;
 		charge-full-design-microamp-hours = <4500000>;
 	};
@@ -1205,15 +1348,67 @@
 	status = "okay";
 };
 
+/*
+ * qup6 i2c (i2c@998000). Enabled 2026-11-14 for the camera EEPROM probe.
+ *
+ * Deliberately BARE -- no child nodes, exactly like the main S2MPB02 bus. The
+ * only thing on it that we care about is qcom,eeprom11, a camera module
+ * calibration EEPROM at 7-bit 0x51 (vendor slave-addr = <0xa2>, 8-bit). There
+ * is no mainline driver for a Qualcomm camera cal EEPROM, and binding `at24`
+ * to it would be a guess about size and page layout, so it gets read with
+ * i2cdetect/i2cdump instead. Same reasoning as /i2c@51.
+ *
+ * It needs ONE rail: cam_vio = s2mpb02-ldo7, which the main S2MPB02 on i2c-0
+ * already exposes. From userspace, after boot:
+ *
+ *     i2cget -f -y 0 0x59 0x24        # LDO7 CTRL, expect 0x30 (1.8 V, off)
+ *     i2cset -f -y 0 0x59 0x24 0xb0   # bit 7 = enable -> 1.8 V on
+ *     i2cdetect -y -r <bus>           # look for 0x51
+ *     i2cdump -y <bus> 0x51
+ *     i2cset -f -y 0 0x59 0x24 0x30   # rail back off when done
+ *
+ * (LDOn CTRL = 0x1e + (n-1). That map was off by one for most of a day once;
+ * HANDBOOK section 20 has the story. LDO6-18 are 600 mV + 25 mV * sel.)
+ *
+ * No pinctrl stanza and no clock-frequency override: upstream's i2c6 node
+ * already points at qup_i2c6_default (gpio28/29, function "qup6"), which
+ * matches the vendor's qupv3_se6_i2c_active exactly. gpi_dma0 is already
+ * okay below, so the dmas property resolves the same way i2c7's does.
+ *
+ * NOT included here: i2c2 / qup2 (i2c@988000, TLMM 12/13)
+ * carries qcom,ois@51, the OIS MCU at 7-bit 0x62. That one wants four rails
+ * plus GPIO 173 (MCU_RESET0) and 168 (MCU_BOOT0) sequenced, so it is a worse
+ * first test and a separate flash.
+ */
+&i2c6 {
+	status = "okay";
+	clock-frequency = <400000>;
+};
+
 &i2c7 {
 	status = "okay";
 	clock-frequency = <400000>;
 
+	/*
+	 * The MFD core. It does NOT bind on this unit: mainline's max77705.c
+	 * refuses any revision but PASS3 ("Rev.0x%x is not tested") and ours
+	 * reads PMICREV = 0x02, i.e. PASS2. Left in place because it costs
+	 * nothing, documents the chip, and is where a future revision-gate fix
+	 * would land.
+	 *
+	 * No interrupt property, deliberately. It used to carry
+	 * <&tlmm 5 IRQ_TYPE_LEVEL_LOW>, which was simply wrong -- the INTB line
+	 * is PM8350C GPIO 5, not TLMM 5 (see the charger node below). Rather
+	 * than correct it here, it is removed: the charger owns that line now,
+	 * and regmap-irq does not request its parent IRQ shared, so if this node
+	 * ever starts binding as well, whichever device probes second would fail
+	 * with -EBUSY. If the revision gate is ever relaxed, the right fix is to
+	 * let THIS node own INTB and hand the charger a virq out of its
+	 * INTSRC domain, the way the chip is actually wired.
+	 */
 	pmic@66 {
 		compatible = "maxim,max77705";
 		reg = <0x66>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
 	};
@@ -1260,18 +1455,49 @@
 	};
 
 	/*
-	 * Charger node kept but DISABLED. CONFIG_CHARGER_MAX77705 is off too,
-	 * so this binds nothing either way -- it is here so re-enabling is a
-	 * one-line change once the s2asl01 limiters can be read. See the
-	 * config fragment for why.
+	 * Charger. ENABLED 2026-11-14, replacing the userspace i2c poking in
+	 * rootfs-work/charge/ with a real power_supply device.
+	 *
+	 * The precondition the old comment here set -- "once the s2asl01
+	 * limiters can be read" -- is met: both answer and their per-cell
+	 * telemetry sums to the gauge's pack current (main 0x38 on the
+	 * i2c1-derived bus, sub 0x39 on the i2c9 one; 122 + 152 mA vs. the
+	 * gauge's 263 mA, cells within 7 mV, 2026-11-14). Each limiter is
+	 * independently capped at 900 mA/cell in CTRL4, so whatever this driver
+	 * is asked for, total pack current is bounded by hardware at 1800 mA.
+	 *
+	 * Despite being a child of the MFD's bus this is a plain i2c driver
+	 * with its own compatible, so it binds without the MFD above. Built as
+	 * a MODULE (CONFIG_CHARGER_MAX77705=m) on purpose: nothing claims the
+	 * chip until modprobe, so a mistake here cannot cost a boot.
+	 *
+	 * INTB is PM8350C GPIO 5, from the vendor DT's
+	 *     max77705,irq-gpio = <&pm8350c_gpios 5 GPIO_ACTIVE_LOW>
+	 * plus its if_pmic_irq pinctrl node (pins = "gpio5", input-enable,
+	 * bias-disable, power-source = <1>) under pm8350c's pinctrl@8800. The
+	 * interrupt specifier for spmi-gpio is 1-based -- pmic_gpio_domain_translate()
+	 * subtracts PMIC_GPIO_PHYSICAL_OFFSET -- so 5 here means the pad the
+	 * vendor calls gpio5, matching how key-volume-up already uses
+	 * <&pm8350_gpios 6>. The pinctrl state is NOT optional: XBL leaves this
+	 * pad with a 10 uA pull-down on VIN0 reading low, and INTB is
+	 * active-low, so without bias-disable a level-low IRQ is asserted
+	 * forever.
+	 *
+	 * What binding this driver writes at probe, measured against the live
+	 * chip beforehand so there are no surprises: float voltage from the
+	 * battery node (4.35 V = what it already is), top-off 200 -> 150 mA,
+	 * BAT-to-SYS overcurrent disabled -> 4.8 A, switching 3 -> 1.5 MHz,
+	 * VCHGIN 4.7 -> 4.5 V, CNFG_09 bit 7 (charge enable, which the vendor
+	 * driver also sets) 0 -> 1, and the charger watchdog left off. It does
+	 * NOT write charge current or input limit, so neither changes at probe.
 	 */
 	charger@69 {
 		compatible = "maxim,max77705-charger";
 		reg = <0x69>;
 		monitored-battery = <&battery>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
-		status = "disabled";
+		interrupts-extended = <&pm8350c_gpios 5 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&if_pmic_irq_default>;
 	};
 };
 
@@ -1289,9 +1515,9 @@
  * connected), measured 2026-11-12.
  *
  * i2c9 lives in the second QUP wrapper, which nothing else used so far.
- * gpi_dma1 is left disabled on purpose (one delta): if SE9 turns out to be
- * FIFO-disabled like spi4, i2c9 will defer with "Failed to get tx DMA ch" and
- * that is the next step, not a guess to bundle in now.
+ * gpi_dma1 is left disabled on purpose: if SE9 turns out to be FIFO-disabled
+ * like spi4, i2c9 will defer with "Failed to get tx DMA ch" and that is the
+ * next step, not a guess to make now.
  */
 &i2c1 {
 	status = "okay";
@@ -1362,7 +1588,35 @@
 	 * &usb_1_dwc3. We follow sagami: same SoC, and it matches where
 	 * sm8350.dtsi actually declares the properties.)
 	 */
-	dr_mode = "peripheral";
+	/*
+	 * "otg", not "peripheral" (2026-11-14). This unit has no working
+	 * speaker, so the USB-C port is the only audio output it can have and
+	 * it has to be able to host a USB DAC. Needs
+	 * CONFIG_USB_DWC3_DUAL_ROLE=y -- with the gadget-only build dwc3 has no
+	 * host half at all.
+	 *
+	 * usb-role-switch is the ONLY workable mechanism on this board:
+	 * dwc3_drd_init() takes it first, and its only alternatives are an
+	 * extcon (we have none -- no usb-connector node, no VBUS sense) and the
+	 * OTG block's ID pin, which Type-C does not wire. With the switch,
+	 * userspace gets /sys/class/usb_role/<sw>/role.
+	 *
+	 * role-switch-default-mode keeps boot behaviour bit-for-bit as it was:
+	 * dwc3_setup_role_switch() calls dwc3_set_mode(DEVICE) before
+	 * registering the switch, so the g_serial console still comes up exactly
+	 * as under dr_mode = "peripheral". The legacy qcom glue also still
+	 * enables its QSCRATCH VBUS override, because it only skips that for
+	 * dr_mode == "host" (dwc3-qcom-legacy.c: mode != USB_DR_MODE_HOST).
+	 *
+	 * Switching to host tears the gadget down (__dwc3_set_mode ->
+	 * dwc3_gadget_exit), and gserial_free_line() then WAITS for every open
+	 * fd on ttyGS0. Stop serial-getty@ttyGS0 first or the switch wedges
+	 * userspace -- see HANDBOOK, and never do it while /dev/console resolves
+	 * to ttyGS0.
+	 */
+	dr_mode = "otg";
+	usb-role-switch;
+	role-switch-default-mode = "peripheral";
 	maximum-speed = "high-speed";
 
 	/* drop the SuperSpeed PHY */
@@ -1376,6 +1630,209 @@
 	vdda33-supply = <&pm8350_l2>;
 
 	status = "okay";
+};
+
+/*
+ * DisplayPort over USB-C (2026-11-19). Video out to a TV, which with no
+ * working speaker on this unit is the only way it will ever drive a screen
+ * and a sound system at once.
+ *
+ * There is no new SoC-side code in this at all. sm8350.dtsi already wires the
+ * whole path and upstream already ships every driver:
+ *
+ *   dpu_intf0 --> mdss_dp (ae90000) --> usb_1_qmpphy DP half (88e8000) --> CC
+ *
+ * What was missing was only that both nodes ship status = "disabled", plus
+ * the two supplies, which the board has to name.
+ *
+ * WHY THIS DOES NOT ENDANGER THE PANELS. intf0 is the DP interface and
+ * nothing else: the inner S6E3XA2 is DSI-1 and the cover S6E3FAB is DSI-2, on
+ * intf1/intf2. Enabling mdss_dp adds a third encoder to the same DRM device
+ * and touches neither DSI link. The combo PHY is likewise disjoint from the
+ * USB2 path we actually use -- &usb_1_dwc3 keeps phys = <&usb_1_hsphy> and
+ * maximum-speed = "high-speed", so dwc3 never asks this PHY for anything and
+ * the g_serial console is unaffected. (It is also why DP gets TWO lanes, not
+ * four: see data-lanes below.)
+ *
+ * Supplies, from the vendor DT's ssphy@88e8000 rather than from a guess:
+ *   vdd-supply   = <&pm8350_l1>, qcom,vdd-voltage-level 0xdea80 = 912000 uV
+ *   core-supply  = <&pm8350_l6>, the shared 1.2 V rail (also UFS PHY PLL)
+ * sm8350-hdk names the same two rails for the same node, independently.
+ */
+/*
+ * The DP connector at the end of the bridge chain. THIS NODE IS NOT OPTIONAL
+ * AND ITS ABSENCE IS FATAL TO THE WHOLE DISPLAY -- it cost one dark-screen
+ * flash cycle on 2026-11-19 to learn why.
+ *
+ * The chain msm_dp needs is:
+ *
+ *   mdss_dp  --port@1-->  usb_1_qmpphy  --port@0-->  a drm_bridge
+ *
+ * msm_dp_display_probe_tail() resolves its end of it with
+ * devm_drm_of_get_bridge(np, 1, 0), which lands on usb_1_qmpphy because
+ * qmp_combo_probe() calls drm_aux_bridge_register() UNCONDITIONALLY and that
+ * registers a transparent bridge carrying the PHY's own of_node. But the
+ * transparent bridge then demands a next bridge of its own:
+ *
+ *   data->next_bridge = devm_drm_of_get_bridge(&auxdev->dev, of_node, 0, 0);
+ *   if (IS_ERR(data->next_bridge))
+ *           return dev_err_probe(...);         // aux-bridge.c
+ *
+ * i.e. port@0 of the PHY -- usb_1_qmpphy_out -- must point at something that
+ * provides a bridge. Leave it dangling and the transparent bridge fails to
+ * probe, so of_drm_find_bridge() finds nothing for the PHY node, so
+ * devm_drm_of_get_bridge() hands mdss_dp -EPROBE_DEFER forever:
+ *
+ *   platform ae90000.displayport-controller: deferred probe pending: (reason unknown)
+ *
+ * and because mdss_dp is a COMPONENT of the one msm DRM device, the component
+ * master never completes and NO DRM DEVICE IS CREATED AT ALL. Both DSI panels
+ * go with it. /sys/class/drm holds only `version`, msm.ko sits at refcount 0,
+ * and the phone has no screen. (The "DSI PLL(n) lock failed" WARNs in that
+ * boot are a RED HERRING -- a known-good boot logs four of them too.)
+ *
+ * Upstream boards never hit this because port@0 goes to their
+ * `usb-c-connector`, whose terminating HPD bridge a Type-C port driver
+ * creates with devm_drm_dp_hpd_bridge_alloc(). We have no such driver yet, so
+ * fold3-dp-hpd.c provides the same bridge on its own DT node instead.
+ *
+ * Whatever terminates this chain MUST be built in. A module that has not
+ * loaded yet is indistinguishable from a missing bridge, and the cost is the
+ * entire display, not just DP.
+ *
+ * When the max77705 Type-C driver lands it should own that bridge and drive
+ * it from the sink's DP Status VDMs, replacing the sysfs switch.
+ */
+/ {
+	/*
+	 * UPDATED 2026-11-19, second pass: this started as an upstream
+	 * `dp-connector`, which did terminate the chain and brought card0-DP-1
+	 * up with both panels intact -- but it can only ever report
+	 * "disconnected", because a dp-connector has no way to deliver HPD.
+	 * DisplayPort Alt Mode has no HPD wire; the sink reports hot-plug
+	 * in-band in a DP Status VDM, and msm_dp refuses to even look at the
+	 * sink until something tells it so:
+	 *
+	 *	ret = msm_dp_aux_is_link_connected(priv->aux);
+	 *	if (!priv->plugged && !ret)
+	 *		goto end;		<- "aux not connected"
+	 *
+	 * and that function reads the DP controller's own HPD state machine,
+	 * which nothing drives on USB-C. Measured: aux link status 0, and the
+	 * dock's own DP Status VDM reporting hpd=0 as well.
+	 *
+	 * So the terminator has to be a real HPD bridge. drivers/gpu/drm/
+	 * bridge/fold3-dp-hpd.c is that bridge plus a sysfs switch, and its
+	 * header explains the rest. Built IN, never a module: see below.
+	 */
+	dp_hpd: dp-hpd-bridge {
+		compatible = "fold3,dp-hpd-bridge";
+
+		port {
+			dp_hpd_in: endpoint {
+				remote-endpoint = <&usb_1_qmpphy_out>;
+			};
+		};
+	};
+};
+
+&usb_1_qmpphy_out {
+	remote-endpoint = <&dp_hpd_in>;
+};
+
+&usb_1_qmpphy {
+	vdda-phy-supply = <&pm8350_l1>;
+	vdda-pll-supply = <&pm8350_l6>;
+
+	/*
+	 * sm8350.dtsi already sets orientation-switch; mode-switch is the other
+	 * half, and together they make the PHY register a typec_switch and a
+	 * typec_mux for a Type-C port driver to drive.
+	 *
+	 * With NO driver registered to drive them -- which is the state until
+	 * the max77705 Type-C driver lands -- this is deliberately inert rather
+	 * than broken: qmp_combo_probe() leaves qmpphy_mode at
+	 * QMPPHY_MODE_USB3DP and orientation at TYPEC_ORIENTATION_NONE, and
+	 * NONE means `reverse = false`, i.e. the normal (CC1) lane mapping. So
+	 * DP comes up in combo mode on two lanes in the normal orientation,
+	 * which is exactly what a cable inserted one way up wants. Plugged the
+	 * other way up the lanes are swapped and the link will not train --
+	 * flip the plug, or poke SW_PORTSELECT (see fold3-dp).
+	 */
+	mode-switch;
+
+	status = "okay";
+};
+
+&mdss_dp {
+	status = "okay";
+};
+
+&mdss_dp_out {
+	/*
+	 * TWO lanes, i.e. DP pin assignment D, which is what every upstream
+	 * Qualcomm phone does (qcm6490-fairphone-fp5, sm8350-hdk, sm8550-mtp
+	 * all set <0 1>). Four lanes would need the PHY reconfigured to
+	 * QMPPHY_MODE_DP_ONLY through typec_mux_set(), and that call is a no-op
+	 * until some PHY half has been initialised
+	 * (qmp_combo_typec_mux_set: `if (!qmp->init_count) return 0`), so on a
+	 * board with no USB3 consumer the mode at DP-configure time is still
+	 * USB3DP. Two lanes needs no mux call at all and cannot get out of step
+	 * with what we told the sink.
+	 *
+	 * It is also plenty: 2 x HBR2 is 8.64 Gbit/s raw, ~6.9 Gbit/s of pixels
+	 * after 8b/10b, which covers 1080p60 (3.2) and 4K30 (6.2).
+	 */
+	data-lanes = <0 1>;
+
+	/*
+	 * Capped at RBR (1.62 Gbit/s/lane) for now, 2026-11-19.
+	 *
+	 * Left uncapped, msm_dp takes the sink's advertised maximum -- this
+	 * dock reports MAX_LINK_RATE 0x14 = HBR2 -- and link training fails:
+	 *
+	 *   msm_dp_ctrl_on_link: rate=540000, num_lanes=2, pixel_rate=50250
+	 *   msm_dp_ctrl_setup_main_link: using LINK_BW_SET: 0x14
+	 *   msm_dp_link_adjust_levels: lane=0 req_vol_swing=1 ... 2 ... 3
+	 *   msm_dp_ctrl_update_phy_vx_px: max. voltage swing level reached 3
+	 *   msm_dp_ctrl_link_train_1_2: *ERROR* max v_level reached
+	 *   msm_dp_bridge_atomic_enable: *ERROR* Failed link training (rc=-104)
+	 *
+	 * The sink escalates voltage swing to maximum and still never reaches
+	 * channel equalisation. It is marginal rather than dead: one sink IRQ
+	 * read reported `channel_eq_done = 0, clock_recovery_done = 1`, so
+	 * signal does arrive -- just not cleanly enough at 5.4 Gbit/s through
+	 * this dock's captive cable.
+	 *
+	 * How this is read, so the number is not mysterious:
+	 * msm_dp_link_link_frequencies() takes the LAST element of this list
+	 * (so keep it ascending) off port@1's endpoint and divides by 10000,
+	 * giving msm's units -- 1620000000 -> 162000 = RBR, 2700000000 ->
+	 * 270000 = HBR, 5400000000 -> 540000 = HBR2.
+	 *
+	 * UPDATED 2026-11-20. This was pinned to RBR alone on 2026-11-19
+	 * because HBR2 training failed with "max v_level reached". That
+	 * diagnosis was wrong, or at least incomplete: we were forcing a
+	 * software HPD while the dock still reported HPD_State = 0, and
+	 * msm_dp_ctrl_link_train()'s retry loop breaks out early when
+	 * msm_dp_aux_is_link_connected() goes false -- which a faked HPD
+	 * causes. So training was probably not defeated by signal integrity,
+	 * it was defeated by a sink that was not there yet.
+	 *
+	 * Listing all three is safe, because msm_dp does NOT just try the top
+	 * rate and give up. On a training failure dp_ctrl.c steps down:
+	 * msm_dp_ctrl_link_rate_down_shift() first, then
+	 * msm_dp_ctrl_link_lane_down_shift() once it is already at RBR, all
+	 * inside link_train_max_retries. msm_dp_link_link_frequencies() takes
+	 * the LAST element as the cap, so this asks for HBR2 and lets the
+	 * driver settle wherever the link actually works -- at worst back to
+	 * the 2 x RBR that drives 1280x720 today.
+	 *
+	 * This property does not touch the bridge chain, so it cannot
+	 * reproduce the dark-screen failure: the terminating HPD bridge is
+	 * built in and present regardless of what is written here.
+	 */
+	link-frequencies = /bits/ 64 <1620000000 2700000000 5400000000>;
 };
 
 /*
@@ -1608,19 +2065,67 @@
 };
 
 /*
- * Everything else pmk8350.dtsi brings in stays off, so that a bad boot has
- * exactly one candidate cause. These nodes have NO status line of their own,
- * so merely including the file would enable all of them:
- *   pmk8350_vadc    SPMI ADC7
+ * The max77705's INTB line. Verbatim from the vendor's if_pmic_irq node under
+ * qcom,pm8350c@2/pinctrl@8800, including power-source = <1> (VIN1, where XBL
+ * leaves this pad on VIN0) and bias-disable: the pull-up is on the board, and
+ * the 10 uA internal pull-down XBL leaves behind holds an active-low line
+ * permanently asserted.
+ */
+&pm8350c_gpios {
+	if_pmic_irq_default: if-pmic-irq-default-state {
+		pins = "gpio5";
+		function = "normal";
+		input-enable;
+		bias-disable;
+		power-source = <1>;
+	};
+};
+
+/*
+ * pmk8350.dtsi's nodes have NO status line of their own, so merely including
+ * the file would enable all of them. We turn on only what we use:
+ *   pmk8350_vadc    SPMI ADC7  -- ENABLED below, for the pack thermistors
  *   pmk8350_gpios   4 PMIC GPIOs
  *   11 SDAMs        PMIC scratch RAM
- * The root-level reboot-mode node goes with them: it is nvmem-reboot-mode
+ * The root-level reboot-mode node goes with the SDAMs: it is nvmem-reboot-mode
  * pointing at a cell inside pmk8350_sdam_2, and would dangle with that SDAM
  * disabled. We force TWRP through the misc-partition BCB instead, which is
  * independent of it (see section 6 / force-TWRP-via-BCB).
+ *
+ * ADC7's controller lives on PMK8350 (SID 0) but reads other PMICs' channels,
+ * addressed as sid << 8 | channel. The two below are the battery pack
+ * thermistors, taken from the vendor DT (q2q_eur_openx_w00_r05.dts line 178:
+ * io-channel-names "adc-temp" = 0x14b, "adc-sub-bat" = 0x14c) -- i.e. PM8350
+ * (SID 1) GPIO2 and GPIO3 with the 100 kOhm pull-up. The pack is dual-cell
+ * and has one thermistor per side.
+ *
+ * Samsung reads these and WRITES the result into the fuel gauge, which is why
+ * the gauge's own temperature register is a frozen constant on mainline:
+ * nothing here was feeding it. See HANDBOOK 29.6 item 1b.
+ *
+ * Default scaling for a *_100K_PU channel is SCALE_HW_CALIB_THERM_100K_PULLUP,
+ * so these read as temperature off Qualcomm's generic 100k NTC curve. The
+ * vendor's own 23-point table (battery,temp_table_adc / _data) is in the
+ * vendor DT if the two curves disagree.
  */
 &pmk8350_vadc {
-	status = "disabled";
+	status = "okay";
+
+	channel@14b {
+		reg = <PM8350_ADC7_GPIO2_100K_PU(1)>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+		label = "batt_therm";
+	};
+
+	channel@14c {
+		reg = <PM8350_ADC7_GPIO3_100K_PU(1)>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+		label = "sub_batt_therm";
+	};
 };
 
 &pmk8350_gpios {
@@ -1984,7 +2489,7 @@
  * inside it, reached over GLINK once it boots. sm8350.dtsi already describes
  * the remoteproc, its smp2p pair and the APR services; this just turns it on
  * and points it at Samsung's signed image (firmware_mnt:/image/adsp.mdt +
- * .bNN, extracted 2026-11-07). No sound card yet -- one delta at a time.
+ * .bNN, extracted 2026-11-07). No sound card yet.
  *
  * Hardware, for the later milestones (vendor overlay):
  *   speakers  2x Cirrus CS35L41 on i2c + TERT MI2S (qcom,wsa-max-devs = 0)
@@ -2220,5 +2725,531 @@
 		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
 		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
 		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
+	};
+};
+
+/*
+ * Camera clock controller (camcc). Added 2026-11-14.
+ *
+ * Mainline sm8350.dtsi has no camcc node because mainline had no camcc-sm8350
+ * driver; camera-work/ now generates one from Qualcomm's camcc-lahaina.c. The
+ * node lives here rather than in sm8350.dtsi only so it can be iterated on
+ * without carrying a tree patch -- it belongs upstream in the SoC dtsi.
+ *
+ * Deliberate differences from mainline's sm8250 camcc node:
+ *
+ *   - NO "iface" clock. sm8250's node takes <&gcc GCC_CAMERA_AHB_CLK>, but
+ *     mainline gcc-sm8350.c does not model that clock at all (it has only the
+ *     camera hf/sf AXI clocks). Android's own suspend-time clock dump shows
+ *     gcc_camera_ahb_clk enabled with nothing holding it, i.e. it is left on,
+ *     which is also why our driver needs no runtime PM to touch registers.
+ *     See HANDBOOK and camera-work/README.md.
+ *   - MMCX is still required: the camcc register block sits in that domain.
+ *
+ * reg/size come from the vendor DT (qcom,camcc@ad00000, 0x10000), and
+ * max_register in the driver is the vendor's 0xf008.
+ */
+&soc {
+	camcc: clock-controller@ad00000 {
+		compatible = "qcom,sm8350-camcc";
+		reg = <0 0x0ad00000 0 0x10000>;
+
+		clocks = <&rpmhcc RPMH_CXO_CLK>,
+			 <&rpmhcc RPMH_CXO_CLK_A>,
+			 <&sleep_clk>;
+		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk";
+
+		power-domains = <&rpmhpd RPMHPD_MMCX>;
+		required-opps = <&rpmhpd_opp_low_svs>;
+
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+		#power-domain-cells = <1>;
+
+		status = "okay";
+	};
+};
+
+&tlmm {
+	/*
+	 * CAMIF_MCLK3 -> the cover camera module. Values copied from the
+	 * vendor's cam_sensor_mclk3_active: function "cam_mclk",
+	 * drive-strength 4, bias-disable.
+	 */
+	cam_mclk3_active: cam-mclk3-active-state {
+		pins = "gpio103";
+		function = "cam_mclk";
+		drive-strength = <4>;
+		bias-disable;
+	};
+};
+
+/*
+ * ===========================================================================
+ * Cameras, stage 1: CCI1 + camss + the rear ultrawide IMX258 (2026-11-15)
+ * ===========================================================================
+ *
+ * This replaces the temporary `camcc-mclk-test` harness, which existed only so
+ * that *something* claimed titan_top_gdsc (a GDSC is a genpd and only powers up
+ * for an attached device, so camcc clocks returned -EBUSY with no consumer).
+ * The camss node below is that consumer for real.
+ *
+ * WHY THE ULTRAWIDE, and not the cover module the 11-14 session was chasing:
+ * three of this phone's five sensors already have complete upstream drivers --
+ * the handbook's "sensor subdevs: none exist upstream" was wrong.
+ *
+ *     rear ultrawide   SONY IMX258   drivers/media/i2c/imx258.c   <- this node
+ *     front            SONY IMX471   drivers/media/i2c/imx471.c
+ *     rear tele        S5K3M5        drivers/media/i2c/s5k3m5.c   (dual-sourced
+ *                                    with HI1337; which one this unit has is
+ *                                    not yet established)
+ *
+ * That matters because the one genuinely unportable piece is the sensor's init
+ * and mode register sequences: Qualcomm keeps them in userspace HAL data, not
+ * in the GPL kernel drop. An upstream subdev driver carries its own, so the
+ * IMX258 sidesteps the single thing that decides whether this ever captures.
+ * It is also 19.2 MHz native (imx258.c accepts 19.2 and 24 MHz) and Android
+ * demonstrably streams it, so the module is known good.
+ *
+ * The ceiling is unchanged: mainline camss is a CSI receiver with no ISP
+ * driver, so this yields raw Bayer frames, not One UI output.
+ */
+
+&tlmm {
+	/*
+	 * CCI1's two i2c masters. "cci2/cci3" is the vendor's global numbering
+	 * of the four CCI masters (cci0/cci1 = hardware CCI0 m0/m1 on 107-110,
+	 * cci2/cci3 = hardware CCI1 m0/m1 on 111-114); the names here follow
+	 * mainline's per-controller convention instead. Values are the vendor's
+	 * cci2_active/cci3_active: function "cci_i2c", pull-up, 2 mA.
+	 */
+	cci1_default: cci1-default-state {
+		pins = "gpio111", "gpio112", "gpio113", "gpio114";
+		function = "cci_i2c";
+		bias-pull-up;
+		drive-strength = <2>;
+	};
+
+	cci1_sleep: cci1-sleep-state {
+		pins = "gpio111", "gpio112", "gpio113", "gpio114";
+		function = "cci_i2c";
+		bias-pull-down;
+		drive-strength = <2>;
+	};
+
+	/*
+	 * CAMIF_MCLK1 -> the rear ultrawide. Vendor cam_sensor_mclk1_active:
+	 * function "cam_mclk", bias-disable, drive-strength 2.
+	 */
+	cam_mclk1_active: cam-mclk1-active-state {
+		pins = "gpio101";
+		function = "cam_mclk";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	/*
+	 * UWCAM_RST_N, the ultrawide module's XCLR. Vendor
+	 * cam_sensor_active_rst2: function "gpio", bias-disable, 2 mA.
+	 */
+	cam_uw_reset: cam-uw-reset-state {
+		pins = "gpio106";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+	};
+};
+
+&soc {
+	/*
+	 * CCI1 (the camera i2c controller), hardware instance 1 at 0xac50000.
+	 *
+	 * NOTE the base address: SM8250 and SC8280XP put their two CCIs at
+	 * 0xac4a000/0xac4b000, but SM8350 does NOT -- the vendor DT says
+	 * 0xac4f000 (CCI0) and 0xac50000 (CCI1). Copying the sm8250 node
+	 * wholesale would point at nothing.
+	 *
+	 * No driver change is needed: mainline i2c-qcom-cci has no
+	 * qcom,sm8350-cci, but SM8350's CCI is register-compatible with the
+	 * cci_v2 generation, so the sm8250 compatible serves as the fallback
+	 * that actually matches (the same trick sc8280xp.dtsi uses with
+	 * qcom,msm8996-cci). The driver takes its clocks with
+	 * devm_clk_bulk_get_all(), so clock-names here are documentation only.
+	 */
+	cci1: cci@ac50000 {
+		compatible = "qcom,sm8350-cci", "qcom,sm8250-cci";
+		reg = <0 0x0ac50000 0 0x1000>;
+
+		interrupts = <GIC_SPI 271 IRQ_TYPE_EDGE_RISING>;
+
+		clocks = <&camcc CAM_CC_CAMNOC_AXI_CLK>,
+			 <&camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			 <&camcc CAM_CC_CPAS_AHB_CLK>,
+			 <&camcc CAM_CC_CCI_1_CLK>;
+		clock-names = "camnoc_axi",
+			      "slow_ahb_src",
+			      "cpas_ahb",
+			      "cci";
+
+		power-domains = <&camcc TITAN_TOP_GDSC>;
+
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&cci1_default>;
+		pinctrl-1 = <&cci1_sleep>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		status = "okay";
+
+		/*
+		 * Master 0 (TLMM 111/112) carries the ultrawide and its
+		 * calibration EEPROM (vendor qcom,eeprom2, slave 0xa2 =
+		 * 7-bit 0x51; no mainline driver for it, so it is not
+		 * described here).
+		 *
+		 * 100 kHz deliberately: the vendor runs this bus at 1 MHz,
+		 * but standard mode is the conservative choice for first
+		 * contact and nothing here is throughput-bound. Raise it once
+		 * the sensor is known to answer.
+		 */
+		cci1_i2c0: i2c-bus@0 {
+			reg = <0>;
+			clock-frequency = <100000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/*
+			 * The i2c address is the ONE fact the device tree
+			 * cannot supply: the vendor's cam-sensor nodes carry
+			 * no slave-addr, because Qualcomm's stack is told the
+			 * address by userspace in the probe packet. 0x1a is
+			 * the usual IMX258 address and what the only in-tree
+			 * user (rk3399-pinephone-pro) uses; 0x10, 0x20 and
+			 * 0x6c are the other strap options. If this does not
+			 * probe, scan the bus -- CCI masters appear as normal
+			 * Linux i2c adapters, so i2cdetect settles it.
+			 */
+			imx258: camera@1a {
+				compatible = "sony,imx258";
+				reg = <0x1a>;
+
+				clocks = <&camcc CAM_CC_MCLK1_CLK>;
+				assigned-clocks = <&camcc CAM_CC_MCLK1_CLK>;
+				assigned-clock-rates = <19200000>;
+
+				reset-gpios = <&tlmm 106 GPIO_ACTIVE_LOW>;
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&cam_mclk1_active>, <&cam_uw_reset>;
+
+				/*
+				 * Vendor qcom,cam-sensor2 rgltr-min-voltage:
+				 * 1.2 V vdig, 1.8 V vio, 2.7 V vana. The
+				 * fourth rail it names, cam_v_custom1 (buck2,
+				 * 1.3 V), has no consumer in imx258.c and is
+				 * held always-on at the PMIC instead.
+				 */
+				vdig-supply = <&s2mpb02_main_l4>;
+				vif-supply = <&s2mpb02_main_l6>;
+				vana-supply = <&s2mpb02_main_l12>;
+
+				/*
+				 * 0 = front, 1 = back, 2 = external. This is
+				 * a rear camera; with 0 here libcamera calls
+				 * it "Internal front camera".
+				 */
+				orientation = <1>;
+				rotation = <0>;
+
+				port {
+					imx258_ep: endpoint {
+						remote-endpoint = <&csiphy4_ep>;
+						/*
+						 * Sensor side counts lanes from
+						 * 1, the camss side from 0.
+						 * 633.6 MHz is the 19.2 MHz
+						 * clock's full-res link
+						 * frequency (the 24 MHz part
+						 * would be 636 MHz).
+						 */
+						data-lanes = <1 2 3 4>;
+						link-frequencies =
+							/bits/ 64 <633600000>;
+					};
+				};
+			};
+		};
+
+		/* Master 1 (TLMM 113/114). Nothing described on it yet. */
+		cci1_i2c1: i2c-bus@1 {
+			reg = <1>;
+			clock-frequency = <100000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+	};
+
+	/*
+	 * camss. Mainline has no qcom,sm8350-camss; the driver side is added by
+	 * patches/0010 and camera-work/port-csiphy-sm8350.py.
+	 *
+	 * SM8350 is Titan 580, and 580 turns out to be register-identical to
+	 * SM8250's Titan 480 everywhere camss touches: Qualcomm files both
+	 * under vfe17x, cam_vfe580.h #includes cam_vfe480.h and reuses
+	 * vfe480_top_common_reg / vfe480_bus_hw_info / vfe480_top_irq_reg_info
+	 * verbatim, and "qcom,csid580" maps to cam_ife_csid480_hw_info. So the
+	 * port reuses vfe_ops_480 + csid_ops_gen2 unchanged.
+	 *
+	 * What differs from SM8250 is the topology and the CSIPHY:
+	 *   - 3 full IFEs + 2 IFE-lites (SM8250 has 2 + 2), hence 3 CSIDs + 2
+	 *     lite CSIDs. CSID has no reg of its own on this generation: it
+	 *     lives at vfe_base + 0x1200 (0xacb5200 - 0xacb4000 in the vendor
+	 *     DT), which is why only csiphy/vfe appear in reg-names.
+	 *   - CSIPHY is v1.2.3, where SM8250 is v1.2.1 -- a different vendor
+	 *     register sequence, so lane_regs_sm8350 had to be generated.
+	 *
+	 * Addresses and interrupts are all from the vendor's
+	 * lahaina-camera.dtsi, not inferred from sm8250.
+	 */
+	camss: isp@ac6a000 {
+		compatible = "qcom,sm8350-camss";
+
+		reg = <0 0x0ac6a000 0 0x2000>,
+		      <0 0x0ac6c000 0 0x2000>,
+		      <0 0x0ac6e000 0 0x2000>,
+		      <0 0x0ac70000 0 0x2000>,
+		      <0 0x0ac72000 0 0x2000>,
+		      <0 0x0ac74000 0 0x2000>,
+		      <0 0x0acb4000 0 0xd000>,
+		      <0 0x0acc3000 0 0xd000>,
+		      <0 0x0acef000 0 0xd000>,
+		      <0 0x0acd9000 0 0x2200>,
+		      <0 0x0acdb200 0 0x2200>;
+		reg-names = "csiphy0",
+			    "csiphy1",
+			    "csiphy2",
+			    "csiphy3",
+			    "csiphy4",
+			    "csiphy5",
+			    "vfe0",
+			    "vfe1",
+			    "vfe2",
+			    "vfe_lite0",
+			    "vfe_lite1";
+
+		interrupts = <GIC_SPI 477 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 478 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 479 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 448 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 122 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 89 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 464 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 466 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 640 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 468 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 359 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 465 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 467 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 641 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 469 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 360 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "csiphy0",
+				  "csiphy1",
+				  "csiphy2",
+				  "csiphy3",
+				  "csiphy4",
+				  "csiphy5",
+				  "csid0",
+				  "csid1",
+				  "csid2",
+				  "csid3",
+				  "csid4",
+				  "vfe0",
+				  "vfe1",
+				  "vfe2",
+				  "vfe_lite0",
+				  "vfe_lite1";
+
+		/*
+		 * TITAN_TOP must come last: camss attaches the whole-block
+		 * domain by index genpd_num - 1 when attach-by-name finds no
+		 * power-domain-names (camss_configure_pd()).
+		 */
+		power-domains = <&camcc IFE_0_GDSC>,
+				<&camcc IFE_1_GDSC>,
+				<&camcc IFE_2_GDSC>,
+				<&camcc TITAN_TOP_GDSC>;
+
+		clocks = <&gcc GCC_CAMERA_HF_AXI_CLK>,
+			 <&gcc GCC_CAMERA_SF_AXI_CLK>,
+			 <&camcc CAM_CC_CAMNOC_AXI_CLK>,
+			 <&camcc CAM_CC_CAMNOC_AXI_CLK_SRC>,
+			 <&camcc CAM_CC_CPAS_AHB_CLK>,
+			 <&camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			 <&camcc CAM_CC_CSIPHY0_CLK>,
+			 <&camcc CAM_CC_CSI0PHYTIMER_CLK>,
+			 <&camcc CAM_CC_CSIPHY1_CLK>,
+			 <&camcc CAM_CC_CSI1PHYTIMER_CLK>,
+			 <&camcc CAM_CC_CSIPHY2_CLK>,
+			 <&camcc CAM_CC_CSI2PHYTIMER_CLK>,
+			 <&camcc CAM_CC_CSIPHY3_CLK>,
+			 <&camcc CAM_CC_CSI3PHYTIMER_CLK>,
+			 <&camcc CAM_CC_CSIPHY4_CLK>,
+			 <&camcc CAM_CC_CSI4PHYTIMER_CLK>,
+			 <&camcc CAM_CC_CSIPHY5_CLK>,
+			 <&camcc CAM_CC_CSI5PHYTIMER_CLK>,
+			 <&camcc CAM_CC_IFE_0_CLK>,
+			 <&camcc CAM_CC_IFE_0_AHB_CLK>,
+			 <&camcc CAM_CC_IFE_0_AREG_CLK>,
+			 <&camcc CAM_CC_IFE_0_AXI_CLK>,
+			 <&camcc CAM_CC_IFE_0_CSID_CLK>,
+			 <&camcc CAM_CC_IFE_0_CPHY_RX_CLK>,
+			 <&camcc CAM_CC_IFE_1_CLK>,
+			 <&camcc CAM_CC_IFE_1_AHB_CLK>,
+			 <&camcc CAM_CC_IFE_1_AREG_CLK>,
+			 <&camcc CAM_CC_IFE_1_AXI_CLK>,
+			 <&camcc CAM_CC_IFE_1_CSID_CLK>,
+			 <&camcc CAM_CC_IFE_1_CPHY_RX_CLK>,
+			 <&camcc CAM_CC_IFE_2_CLK>,
+			 <&camcc CAM_CC_IFE_2_AHB_CLK>,
+			 <&camcc CAM_CC_IFE_2_AREG_CLK>,
+			 <&camcc CAM_CC_IFE_2_AXI_CLK>,
+			 <&camcc CAM_CC_IFE_2_CSID_CLK>,
+			 <&camcc CAM_CC_IFE_2_CPHY_RX_CLK>,
+			 <&camcc CAM_CC_IFE_LITE_CLK>,
+			 <&camcc CAM_CC_IFE_LITE_AHB_CLK>,
+			 <&camcc CAM_CC_IFE_LITE_AXI_CLK>,
+			 <&camcc CAM_CC_IFE_LITE_CSID_CLK>,
+			 <&camcc CAM_CC_IFE_LITE_CPHY_RX_CLK>;
+		clock-names = "cam_hf_axi",
+			      "cam_sf_axi",
+			      "camnoc_axi",
+			      "camnoc_axi_src",
+			      "cpas_ahb",
+			      "slow_ahb_src",
+			      "csiphy0",
+			      "csiphy0_timer",
+			      "csiphy1",
+			      "csiphy1_timer",
+			      "csiphy2",
+			      "csiphy2_timer",
+			      "csiphy3",
+			      "csiphy3_timer",
+			      "csiphy4",
+			      "csiphy4_timer",
+			      "csiphy5",
+			      "csiphy5_timer",
+			      "vfe0",
+			      "vfe0_ahb",
+			      "vfe0_areg",
+			      "vfe0_axi",
+			      "vfe0_csid",
+			      "vfe0_cphy_rx",
+			      "vfe1",
+			      "vfe1_ahb",
+			      "vfe1_areg",
+			      "vfe1_axi",
+			      "vfe1_csid",
+			      "vfe1_cphy_rx",
+			      "vfe2",
+			      "vfe2_ahb",
+			      "vfe2_areg",
+			      "vfe2_axi",
+			      "vfe2_csid",
+			      "vfe2_cphy_rx",
+			      "vfe_lite",
+			      "vfe_lite_ahb",
+			      "vfe_lite_axi",
+			      "vfe_lite_csid",
+			      "vfe_lite_cphy_rx";
+
+		/*
+		 * CSIPHY analog supplies. The vendor csiphy nodes name
+		 * csi-vdd-1p2 = pm8350_l6 and csi-vdd-0p9 = pm8350_l5
+		 * (1.2 V / 0.88 V), which are mainline's vdda-pll / vdda-phy.
+		 * Both rails are already declared for other consumers.
+		 */
+		vdda-phy-supply = <&pm8350_l5>;
+		vdda-pll-supply = <&pm8350_l6>;
+
+		/*
+		 * Stream IDs from the vendor's msm_cam_smmu_ife context bank.
+		 * Mask 0x440, not sm8250's 0x400.
+		 */
+		iommus = <&apps_smmu 0x800 0x440>,
+			 <&apps_smmu 0x840 0x440>,
+			 <&apps_smmu 0xc00 0x440>,
+			 <&apps_smmu 0xc40 0x440>;
+
+		interconnects = <&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_CAMERA_CFG 0>,
+				<&mmss_noc MASTER_CAMNOC_HF 0 &mc_virt SLAVE_EBI1 0>,
+				<&mmss_noc MASTER_CAMNOC_SF 0 &mc_virt SLAVE_EBI1 0>,
+				<&mmss_noc MASTER_CAMNOC_ICP 0 &mc_virt SLAVE_EBI1 0>;
+		interconnect-names = "cam_ahb",
+				     "cam_hf_0_mnoc",
+				     "cam_sf_0_mnoc",
+				     "cam_sf_icp_mnoc";
+
+		status = "okay";
+
+		/*
+		 * Port index == CSIPHY index. Only CSIPHY4 is wired up so far;
+		 * the ultrawide sits there per the vendor's
+		 * qcom,cam-sensor2 csiphy-sd-index = <4>.
+		 */
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@4 {
+				reg = <4>;
+
+				csiphy4_ep: endpoint {
+					clock-lanes = <7>;
+					data-lanes = <0 1 2 3>;
+					remote-endpoint = <&imx258_ep>;
+				};
+			};
+		};
+	};
+};
+
+/*
+ * TEMPORARY sensor power rig (2026-11-15). camera-work/sensor-rig/.
+ *
+ * Holds the rear ultrawide module powered, un-reset and clocked so the CCI
+ * bus can be scanned for its i2c address -- the one fact the device tree
+ * cannot supply, because Qualcomm's stack learns it from userspace and the
+ * vendor's qcom,cam-sensor nodes carry no slave-addr.
+ *
+ * It coexists with the imx258 node above on purpose. If the address there is
+ * wrong, imx258 fails its chip-ID read and devm releases the reset GPIO and
+ * the rails, after which `insmod q2q-sensor-rig.ko` can claim them. Once the
+ * address is right, imx258 keeps the GPIO and the rig simply fails to bind,
+ * which is the correct outcome.
+ *
+ * Delete this node, and camera-work/sensor-rig/, once every sensor address is
+ * known and recorded.
+ */
+/ {
+	cam_uw_rig: cam-uw-rig {
+		compatible = "q2q,sensor-rig";
+
+		clocks = <&camcc CAM_CC_MCLK1_CLK>;
+		clock-names = "mclk";
+
+		power-domains = <&camcc TITAN_TOP_GDSC>;
+
+		vdig-supply = <&s2mpb02_main_l4>;
+		vif-supply = <&s2mpb02_main_l6>;
+		vana-supply = <&s2mpb02_main_l12>;
+
+		reset-gpios = <&tlmm 106 GPIO_ACTIVE_LOW>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam_mclk1_active>, <&cam_uw_reset>;
+
+		status = "okay";
 	};
 };

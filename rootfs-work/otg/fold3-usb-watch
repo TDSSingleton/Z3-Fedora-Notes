@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Fold 3: log every USB-C attach/detach the MAX77705 can see.
+#
+# The point is to find out whether this phone can detect a plug event AT ALL
+# without a Type-C driver. The MAX77705's CC state machine runs in the chip's
+# own firmware (UIC_FW_REV reads 0x65), so CC_STATUS0 (usbc 0x0a) may track
+# attach/detach by itself: bits[2:0] = 0 none, 1 SINK (a charger/host is
+# attached), 2 SOURCE (a device is attached, we owe it VBUS), 3 audio
+# accessory, 4 debug accessory. Bits[7:6] say which CC pin.
+#
+# If it reaches 2 with a device plugged in, the chip is toggling as a DRP and
+# plug detection is just this poll -- no driver, no interrupt. If it stays 0,
+# the firmware is sink-only and would have to be told otherwise over the PD
+# mailbox (AP_DATAOUT opcodes) before any of this can be automatic.
+set -u
+b=$(basename "$(ls -d /sys/bus/i2c/devices/*-0066)" | cut -d- -f1)
+g() { i2cget -y -f "$b" "$1" "$2" 2>/dev/null; }
+snap() {
+	printf "cc=%s chgin=%s bc=%s usb=[%s] cards=[%s]" \
+	  "$(g 0x25 0x0a)" \
+	  "$(( ($(g 0x69 0xb2) & 0x60) >> 5 ))" \
+	  "$(g 0x25 0x08)" \
+	  "$(ls /sys/bus/usb/devices/ 2>/dev/null | grep -vE '^usb[0-9]$|^[0-9]-0:' | tr '\n' ' ')" \
+	  "$(sed -n 's/^ *[0-9] \[\([^ ]*\).*/\1/p' /proc/asound/cards 2>/dev/null | tr '\n' ' ')"
+}
+last=""; n=$(dmesg | wc -l)
+echo "$(date +%T) watching (cc bits[2:0]: 0 none, 1 SINK, 2 SOURCE, 3 audio, 4 debug)"
+echo "$(date +%T) $(snap)   <- baseline"
+while :; do
+	cur=$(snap)
+	if [ "$cur" != "$last" ]; then
+		echo "$(date +%T) $cur"
+		m=$(dmesg | wc -l)
+		[ "$m" -gt "$n" ] && dmesg | tail -n $(( m - n )) | grep -v q6v5 | sed 's/^/        | /'
+		n=$m; last=$cur
+	fi
+	sleep 0.4
+done

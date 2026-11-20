@@ -1,0 +1,249 @@
+#!/usr/bin/env bash
+# Fold 3: switch the USB-C port between gadget (our dev console) and OTG host
+# (a USB DAC, a keyboard, a stick). One port, so the two are exclusive.
+#
+# Two things have to happen together and NEITHER works alone:
+#
+#  Subcommands: on (we power a bus-powered device), dock (a powered dock
+#  powers US and we are still the host), kick, off, status.
+#
+#  1. dwc3 role.  The DT has dr_mode = "otg" + usb-role-switch, so the role is
+#     /sys/class/usb_role/a600000.usb-role-switch/role. Going to host tears the
+#     gadget down (__dwc3_set_mode -> dwc3_gadget_exit), and gserial_free_line()
+#     then WAITS, forever, for every open fd on ttyGS0. That is the 2026-11-12
+#     wedge: agetty held the port, the role-switch work blocked holding
+#     dwc->mutex and all of userspace followed it down. So we stop (and mask)
+#     serial-getty@ttyGS0 and REFUSE to switch while any fd is still open.
+#     /dev/console resolving to ttyGS0 is fine by itself: gs_console_exit()
+#     unregisters the console before the wait, and printk falls back to tty0.
+#
+#  2. The QSCRATCH device-mode VBUS override, which no driver manages on this
+#     binding -- see fold3-qscratch. Stuck on, host mode gets device-mode UTMI
+#     inputs; left off, the gadget stops enumerating and the serial console
+#     goes with it. Cleared before going to host, set before coming back.
+#
+#  3. VBUS.  Nothing on this board sources 5 V by itself -- no usb-connector
+#     node, no extcon, no vbus-supply, and the MAX77705's PD block is not
+#     driven by any mainline driver. The boost that feeds the port is the
+#     charger's own OTG mode: CHG_CNFG_00 (0xb7) bits OTG|BOOST = 0x0A.
+#     Setting them reproduces Samsung's own state machine exactly
+#     (max77705_charger.c: 0x4->0xE, 0x5->0xF, 0x0->0xA, i.e. mode |= 0x0A),
+#     which is why this ORs rather than assigns. CHG_CNFG_02 bits [7:6] are the
+#     OTG current limit; Samsung writes 900 mA on every OTG transition, so do we.
+#
+# Charging and OTG are mutually exclusive on one port: we refuse to boost into
+# a live charger, and fold3-charge is stopped while sourcing so it cannot see
+# our own 5 V on CHGIN and "charge" the battery from the battery.
+set -u
+
+ROLE=/sys/class/usb_role/a600000.usb-role-switch/role
+GETTY=serial-getty@ttyGS0.service
+CHG=0x69                        # MAX77705 charger
+USBC=0x25                       # MAX77705 CC/PD block
+CNFG_00=0xb7 CNFG_02=0xb9 DETAILS_00=0xb2 DETAILS_02=0xb4
+CC_STATUS0=0x0a
+OTG_BITS=0x0a                   # OTG | BOOST
+OTG_ILIM_900=0x40               # CNFG_02 [7:6] = 1
+
+die() { echo "fold3-otg: $*" >&2; exit 1; }
+
+bus() {  # i2c bus numbers shift between boots; never hardcode
+	local d
+	d=$(ls -d /sys/bus/i2c/devices/*-0066 2>/dev/null | head -1)
+	[ -n "$d" ] || die "MAX77705 (i2c addr 0x66) not found"
+	basename "$d" | cut -d- -f1
+}
+rd() { i2cget -y -f "$(bus)" $CHG "$1"; }
+wr() { i2cset -y -f "$(bus)" $CHG "$1" "$2"; }
+rd_usbc() { i2cget -y -f "$(bus)" $USBC "$1"; }
+
+# CHG_DETAILS_00 [6:5] CHGIN_DTLS, as max77705_charger.c decodes it. Testing
+# bit 6 alone (which fold3-charge does) reads 0x02 "above OVLO" as "valid" and
+# misses 0x01 entirely -- and while our own boost drives CHGIN it reports 0x02,
+# so bit 6 alone cannot tell our 5 V from a charger's.
+chgin_dtls() { echo $(( ($(rd $DETAILS_00) & 0x60) >> 5 )); }
+chgin_text() {
+	case $(chgin_dtls) in
+	0) echo "absent (below UVLO)" ;;
+	1) echo "present but below MBAT+CHGIN2SYS -- cannot charge" ;;
+	2) echo "present, above OVLO$(boost_on && echo ' (this is our own OTG boost)')" ;;
+	3) echo "valid" ;;
+	esac
+}
+# anything at all on CHGIN; the only safe pre-condition for turning the boost on
+chgin_present() { [ "$(chgin_dtls)" != 0 ]; }
+boost_on() { [ $(( $(rd $CNFG_00) & OTG_BITS )) -eq $((OTG_BITS)) ]; }
+
+cc_text() {
+	local s=$(rd_usbc $CC_STATUS0) st pin
+	st=$(( s & 0x07 )); pin=$(( (s & 0xc0) >> 6 ))
+	# CCStat alone is NOT enough, but not for the reason once written here.
+	# The claim that this block is "sink-only and never reports SOURCE" is
+	# FALSE: on 2026-11-20 an unpowered dock gave CCStat = 2 (cc_SOURCE,
+	# the vendor's PE_SRC_Send_Capabilities), and CCCTRL1 reads 0x9f, a DRP.
+	# What is true is that the state machine does not always resolve a role:
+	# an attached device often shows up as CCStat 0 with CCPinStat set, so
+	# decoding only CCStat reports it as "nothing attached".
+	case $st in
+	0) [ "$pin" != 0 ] \
+	     && echo "a device is attached (CC$pin, no SINK state -- we would owe it VBUS)" \
+	     || echo "nothing attached" ;;
+	1) echo "SINK -- we are the sink: a charger or a host is attached" ;;
+	2) echo "SOURCE -- we are the source: a device is attached (CC$pin)" ;;
+	3) echo "audio accessory -- a PASSIVE analog jack adapter (needs the codec, dead on this unit)" ;;
+	4) echo "debug accessory" ;;
+	5) echo "error" ;;
+	6) echo "disabled" ;;
+	*) echo "reserved ($st)" ;;
+	esac
+}
+
+ttygs_holders() {
+	local p t
+	for p in /proc/[0-9]*; do
+		for t in "$p"/fd/*; do
+			case "$(readlink "$t" 2>/dev/null)" in
+			*/ttyGS0) echo "$(cat "$p/comm" 2>/dev/null) (pid ${p#/proc/})" ;;
+			esac
+		done
+	done 2>/dev/null | sort -u
+}
+
+boost() {  # on|off
+	local m
+	m=$(rd $CNFG_00)
+	i2cset -y -f "$(bus)" $CHG $CNFG_02 \
+	       $(printf 0x%02x $(( ($(rd $CNFG_02) & 0x3f) | OTG_ILIM_900 )) )
+	if [ "$1" = on ]; then
+		wr $CNFG_00 "$(printf 0x%02x $(( m | OTG_BITS )))"
+	else
+		wr $CNFG_00 "$(printf 0x%02x $(( m & ~OTG_BITS & 0xff )))"
+	fi
+	echo "  CHG_CNFG_00 $m -> $(rd $CNFG_00)   (OTG|BOOST $1)"
+}
+
+case "${1:-status}" in
+on)
+	[ "$(cat $ROLE)" = host ] && { echo "already host"; exit 0; }
+	chgin_present && die "something is already feeding VBUS (CHGIN: $(chgin_text))
+       -- unplug it first; the port cannot sink and source at the same time"
+
+	echo "freeing ttyGS0 (the gadget console must go away before the role moves)"
+	systemctl stop   $GETTY 2>/dev/null
+	systemctl mask   $GETTY 2>/dev/null   # no respawn between here and the switch
+	h=$(ttygs_holders)
+	[ -n "$h" ] && { systemctl unmask $GETTY; die "ttyGS0 still open by: $h
+       switching now would hang gserial_free_line() and wedge userspace"; }
+
+	systemctl stop fold3-charge.service 2>/dev/null
+
+	echo "clearing the QSCRATCH device-mode VBUS override"
+	fold3-qscratch clear | sed 's/^/  /'
+
+	echo "switching dwc3 to host"
+	echo host > $ROLE || { systemctl unmask $GETTY; die "role write failed"; }
+	for i in $(seq 1 20); do [ "$(cat $ROLE)" = host ] && break; sleep 0.25; done
+	[ "$(cat $ROLE)" = host ] || die "role did not reach host (now: $(cat $ROLE))"
+
+	# A device plugged into an ALREADY-live port may never come up: the AB13X
+	# DAC sat there undetected until VBUS went off and back on, then
+	# enumerated within a second. So always hand the port a clean edge.
+	echo "enabling the MAX77705 OTG boost (5 V out on the port)"
+	boost off; sleep 0.5; boost on
+	echo
+	echo "role=$(cat $ROLE)  CHGIN=$(chgin_text)  CC=$(cc_text)"
+	echo "plug the device in now; 'fold3-otg status' to see it."
+	;;
+dock)
+	# Host mode while something ELSE feeds VBUS -- i.e. a powered dock.
+	#
+	# This is the exact inverse of `on`, and it exists because `on` refuses
+	# this case on purpose: it asserts that nothing is on CHGIN before
+	# turning our boost on, which is what keeps two sources off one VBUS.
+	# Here we want the role change WITHOUT the boost: the dock is already
+	# supplying 5 V, and we want to be the USB host behind it so its hub,
+	# its USB-A ports and any Ethernet on it can enumerate. The dock's own
+	# Discover Identity says it expects exactly this -- product type AMA,
+	# "USB device capable", NOT host capable.
+	#
+	# The boost must stay off and charging must keep running, so unlike `on`
+	# this does not stop fold3-charge.
+	[ "$(cat $ROLE)" = host ] && { echo "already host"; exit 0; }
+	chgin_present || die "nothing is feeding VBUS (CHGIN: $(chgin_text))
+       This mode is for a dock that powers the port. For a bus-powered
+       device that needs US to supply 5 V, use 'fold3-otg on'."
+	boost_on && die "our own OTG boost is ON; this mode must not source.
+       Turn it off first with 'fold3-otg off'."
+	st=$(( $(rd_usbc $CC_STATUS0) & 0x07 ))
+	[ "$st" = 1 ] || die "CCStat=$st, expected 1 (cc_SINK).
+       We are not the power sink, so this is not a dock feeding us. CC: $(cc_text)"
+
+	echo "freeing ttyGS0 (the gadget console must go away before the role moves)"
+	systemctl stop   $GETTY 2>/dev/null
+	systemctl mask   $GETTY 2>/dev/null
+	h=$(ttygs_holders)
+	[ -n "$h" ] && { systemctl unmask $GETTY; die "ttyGS0 still open by: $h
+       switching now would hang gserial_free_line() and wedge userspace"; }
+
+	echo "clearing the QSCRATCH device-mode VBUS override"
+	fold3-qscratch clear | sed "s/^/  /"
+
+	echo "switching dwc3 to host (boost stays OFF; the dock owns VBUS)"
+	echo host > $ROLE || { systemctl unmask $GETTY; die "role write failed"; }
+	for i in $(seq 1 20); do [ "$(cat $ROLE)" = host ] && break; sleep 0.25; done
+	[ "$(cat $ROLE)" = host ] || die "role did not reach host (now: $(cat $ROLE))"
+
+	sleep 2
+	echo
+	echo "role=$(cat $ROLE)  CHGIN=$(chgin_text)  CC=$(cc_text)"
+	n=$(ls /sys/bus/usb/devices/ 2>/dev/null | grep -cvE "^usb[0-9]+$|:")
+	echo "enumerated devices: ${n:-0}"
+	lsusb 2>/dev/null | sed "s/^/  /"
+	if [ "${n:-0}" = 0 ]; then
+		echo "Nothing enumerated. We cannot hand the port a VBUS edge here --"
+		echo "the dock owns VBUS -- so a peripheral that was already sitting"
+		echo "in the dock may need re-seating in its socket."
+	fi
+	;;
+kick)
+	# re-run the VBUS edge without leaving host mode, for a device that is
+	# plugged in but never enumerated
+	[ "$(cat $ROLE)" = host ] || die "not in host mode"
+	boost off; sleep 1; boost on
+	sleep 2; echo "port: $(cat /sys/bus/usb/devices/1-0:1.0/usb1-port1/state 2>/dev/null)"
+	;;
+off)
+	echo "disabling the OTG boost"
+	boost off
+	if [ "$(cat $ROLE)" != device ]; then
+		echo "restoring the QSCRATCH override (the gadget needs it to enumerate)"
+		fold3-qscratch set | sed 's/^/  /'
+		echo "switching dwc3 back to gadget"
+		echo device > $ROLE || die "role write failed"
+		for i in $(seq 1 20); do [ "$(cat $ROLE)" = device ] && break; sleep 0.25; done
+	fi
+	systemctl unmask $GETTY 2>/dev/null
+	systemctl start  $GETTY 2>/dev/null
+	systemctl start  fold3-charge.service 2>/dev/null
+	echo "role=$(cat $ROLE)  ttyGS0=$([ -e /dev/ttyGS0 ] && echo back || echo MISSING)"
+	;;
+status)
+	echo "role        $(cat $ROLE 2>/dev/null || echo '(no role switch -- old kernel?)')"
+	echo "dwc3 mode   $(cat /sys/kernel/debug/usb/a600000.usb/mode 2>/dev/null)"
+	echo "CHG_CNFG_00 $(rd $CNFG_00)   (bit1 OTG, bit3 BOOST)"
+	echo "CHG_CNFG_02 $(rd $CNFG_02)   ([7:6] OTG ilim: 0=500 1=900 2=1200 3=1500 mA)"
+	echo "CHGIN       $(chgin_text)"
+	echo "BYP_DTLS    $(( $(rd $DETAILS_02) & 0x0f ))   (bit0 = OTG/boost overcurrent)"
+	echo "CC state    $(cc_text)"
+	echo "override    $(fold3-qscratch show | sed 's/.*override //')"
+	echo "ttyGS0      $([ -e /dev/ttyGS0 ] && echo present || echo absent)$(
+	      h=$(ttygs_holders); [ -n "$h" ] && echo ", open by: $h")"
+	echo "usb devices"
+	for d in /sys/bus/usb/devices/*/product; do
+		[ -e "$d" ] && echo "  $(cat "${d%product}idVendor"):$(cat "${d%product}idProduct") $(cat "$d")"
+	done
+	[ -e /proc/asound/cards ] && { echo "sound cards"; sed 's/^/  /' /proc/asound/cards; }
+	;;
+*)
+	echo "usage: fold3-otg {on|off|kick|status}" >&2; exit 2 ;;
+esac

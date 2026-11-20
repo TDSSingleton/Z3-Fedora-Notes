@@ -19,6 +19,79 @@ SUBVOL=root
 /bin/busybox mount -t devtmpfs devtmpfs /dev  2>/dev/null
 /bin/busybox mount -t tmpfs    tmpfs    /tmp  2>/dev/null
 
+# ---------------------------------------------------------------------------
+# USB composite gadget (2026-11-16). This replaces the legacy built-in
+# g_serial driver, which is now CONFIG_USB_G_SERIAL=n.
+#
+# Why here and not in the rootfs: whichever gadget driver reaches the UDC
+# first owns it, and swapping it on a RUNNING system is not an option -- a
+# live unbind oopses and wedges every process holding ttyGS0 (HANDBOOK 20).
+# So the composite must exist before anything opens the console, which means
+# before switch_root.
+#
+# Two functions, always present together:
+#   acm.0  the console, ttyGS0 -- byte-for-byte what g_serial gave us
+#   ncm.0  USB networking, a second way in when WiFi is down
+#
+# The UDC is bound HERE, in the initramfs, and that is the point: it is what
+# gives the bail-out shell below a working serial console. Anything that has
+# to be added to this gadget later cannot be, without unbinding it first --
+# see HANDBOOK 36.5 for why that rules out putting MTP in here.
+#
+# mass_storage was here and was removed: it is a block protocol, so it can
+# only export a whole filesystem image, never a folder.
+# ---------------------------------------------------------------------------
+usb_gadget_up() {
+	CFG=/sys/kernel/config
+	/bin/busybox mkdir -p "$CFG" 2>/dev/null
+	/bin/busybox mount -t configfs none "$CFG" 2>/dev/null
+	[ -d "$CFG/usb_gadget" ] || return 1
+
+	G="$CFG/usb_gadget/fold3"
+	/bin/busybox mkdir -p "$G" 2>/dev/null || return 1
+
+	# 1d6b:0104 is the Linux Foundation's "Multifunction Composite Gadget".
+	echo 0x1d6b > "$G/idVendor"
+	echo 0x0104 > "$G/idProduct"
+	echo 0x0200 > "$G/bcdUSB"
+	echo 0x0100 > "$G/bcdDevice"
+	/bin/busybox mkdir -p "$G/strings/0x409"
+	echo "Samsung"                    > "$G/strings/0x409/manufacturer"
+	echo "Galaxy Z Fold 3 (mainline)" > "$G/strings/0x409/product"
+	echo "fold3-q2q-0001"             > "$G/strings/0x409/serialnumber"
+
+	/bin/busybox mkdir -p "$G/functions/acm.0" 2>/dev/null
+
+	if /bin/busybox mkdir -p "$G/functions/ncm.0" 2>/dev/null; then
+		# Fixed, locally-administered MACs: a random one every boot makes
+		# the host invent a new interface name each time.
+		echo 02:f0:1d:03:00:01 > "$G/functions/ncm.0/dev_addr"  2>/dev/null
+		echo 02:f0:1d:03:00:02 > "$G/functions/ncm.0/host_addr" 2>/dev/null
+	fi
+
+	/bin/busybox mkdir -p "$G/configs/c.1/strings/0x409"
+	echo "console + storage + network" > "$G/configs/c.1/strings/0x409/configuration"
+	echo 500 > "$G/configs/c.1/MaxPower"
+	for f in acm.0 ncm.0; do
+		[ -d "$G/functions/$f" ] || continue
+		/bin/busybox ln -sf "$G/functions/$f" "$G/configs/c.1/$f" 2>/dev/null
+	done
+
+	UDC="$( /bin/busybox ls /sys/class/udc 2>/dev/null | /bin/busybox head -n1 )"
+	[ -n "$UDC" ] || return 1
+	echo "$UDC" > "$G/UDC" 2>/dev/null || return 1
+	return 0
+}
+
+if usb_gadget_up; then
+	echo "fold3: USB composite gadget up (acm + ncm)" > /dev/kmsg 2>/dev/null
+	# Give the ACM port a moment to register before the banner goes to it,
+	# otherwise the first lines land only on tty0.
+	/bin/busybox sleep 1
+else
+	echo "fold3: USB composite gadget FAILED -- no ttyGS0 this boot, use ssh over WiFi" > /dev/kmsg 2>/dev/null
+fi
+
 echo
 echo "==============================================================="
 echo "  Galaxy Z Fold 3 (SM-F926B / q2q)  --  mainline Linux"

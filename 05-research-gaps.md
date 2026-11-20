@@ -9,7 +9,7 @@
 |---|---|---|
 | Q1 | Unlockable? | ✅ **YES** — `sys.oem_unlock_allowed=1`, `warranty_bit=0` → [08-device-facts.md](Hard%20Truths/08-device-facts.md) |
 | Q2 | Shim bootloader | ✅ **Scoped** — uniLoader port ≈60 lines + 3 addresses → [09-bootloader-plan.md](09-bootloader-plan.md) |
-| Q3 | Camera on unlock | ⏸️ deferred by you |
+| Q3 | Camera on unlock | ✅ **ANSWERED — NO.** Cameras work fully on this unlocked, Knox-tripped device; tested on-device 2026-11-14 → [Q3](#q3-does-unlocking-the-fold-3-really-disable-the-cameras) |
 | Q4 | Dual-cell safety | ✅ **Answered + verified on device:** both `enb` GPIOs rest ENABLED |
 | Q5 | QCA6490 revision | ✅ **hw 2.0** (3 independent signals) → `WCN6855_HW20`, no code change |
 | Q6 | Which touchscreen | ✅ **Moot** — internal screen only, no S Pen |
@@ -69,10 +69,145 @@ Full file-by-file port plan, including the exact Kconfig stanzas, in
 ## High value — needed early, answerable from the device
 
 ### Q3. Does unlocking the Fold 3 really disable the cameras?
-**[3P]** XDA reported Samsung disables cameras on Fold 3 / Flip 3 on bootloader unlock. I
-only saw the headline, not the article body, and I don't know whether later firmware or a
-workaround changed it. Cameras aren't in your goals, but confirm you're willing to accept
-it — along with the permanent Knox trip — before unlocking.
+
+**ANSWERED 2026-11-14, on this device: NO. The claim is FALSE for SM-F926B on this
+firmware.** The cameras work completely under Android with the bootloader unlocked and
+Knox tripped.
+
+Device state at the time of the test, from `getprop`:
+
+```
+ro.boot.verifiedbootstate   orange      <- unlocked
+ro.boot.flash.locked        0           <- unlocked
+ro.boot.warranty_bit        1           <- Knox TRIPPED
+ro.product.model            SM-F926B
+ro.build.version.release    15
+```
+
+Evidence, strongest first:
+
+* **The camera app opened a device and actually streamed.**
+  `CAM_START_DEV Success, sensor_id:0x555` then
+  `cam_sensor_wait_stream_on: [CNT_DBG] 0x555 : Last frame_cnt 0xb` -- eleven frames
+  off the sensor -- then a clean `CAM_STOP_DEV Success`.
+* **`dumpsys media.camera`: "Number of camera devices: 4"** (4 public to API1), with
+  twelve device IDs registered by the provider (0,1,2,3,4,20,21,23,52,71,73,92). An
+  unlock-disabled camera stack enumerates nothing.
+* **Sensor IDs were read back off the silicon over CCI**, i.e. the modules power up
+  and answer: `read id: 0x555 expected id 0x555`, `read id: 0x258 expected id 0x258`.
+* **Calibration EEPROMs read and CRC-checked**: `cam_eeprom_match_crc ... map
+  version = 5 [0x35]`, `All CRC values are matched`, AF cal values
+  (`af_cal_str = 3026 1171 1283`) loaded.
+
+This also matches the static reading: nothing in
+`SM-F926B/Kernel/techpack/camera/` gates on bootloader or Knox state -- no
+warranty-bit, FRP or unlock check anywhere, and
+`csiphy_info[].secure_mode` is per-request and defaults to
+`CAM_SECURE_MODE_NON_SECURE` (`cam_csiphy_core.c`), i.e. the iris/face-unlock
+path rather than a gate on ordinary capture.
+
+**Corrected sensor identities.** The silicon disagrees with Samsung's hardcoded sysfs
+strings, so trust these (read via `cam_sensor_match_id`):
+
+| reported id | part | slave | note |
+|---|---|---|---|
+| `0x555` | **IMX555** | 0x34 | rear wide -- the one that streamed. The sysfs string claims IMX563; it is stale |
+| `0x258` | IMX258 | 0x34 | ultrawide; agrees with the `rear2` sysfs string |
+| `0x0` | — | 0x42 | probes with `expected id 0x0`, so Samsung skips the ID check for this module |
+
+**How this went wrong.** The original entry said, in as many words, *"I only saw the
+headline, not the article body."* That unverified third-party claim then got promoted
+into a flat statement of fact in `README.md` ("Cameras are disabled by the unlock
+itself") and into `04-roadmap.md`'s out-of-scope list. A headline became a project
+constraint without ever being checked. **Keep [3P] claims marked [3P] all the way to
+wherever they are acted on.**
+
+**What the evidence actually shows.** Searched the full downstream camera stack in the
+Samsung GPL drop, `SM-F926B/Kernel/techpack/camera/`:
+
+* **No gate on bootloader or Knox state anywhere in the camera driver** — no
+  warranty-bit check, no FRP check, no unlock check.
+* `csiphy_dev->csiphy_info[].secure_mode` exists but is **per-request and defaults to
+  `CAM_SECURE_MODE_NON_SECURE`** (`cam_csiphy_core.c`). It is the opt-in secure path
+  (iris / face unlock), not a gate on ordinary capture.
+
+So if the report was ever true, it was enforced in **userspace** — the HAL, the camera
+service, or a calibration read through a TA. That says nothing about whether a mainline
+kernel can drive the sensors, and the two were being conflated.
+
+**Hardware evidence, measured on this unlocked, Knox-tripped device (2026-11-14).**
+Read-only over `i2c-0` (the bare main S2MPB02 at `0x59`; LDO*n* CTRL = `0x1e + (n-1)`):
+
+| rail | reg | state | voltage | vendor DT role |
+|---|---|---|---|---|
+| LDO3  | 0x20 | off | ~1.00 V | `cam_vdig`, rear wide |
+| LDO7  | 0x24 | off | ~1.80 V | `cam_vio`, shared (incl. `eeprom11`) |
+| LDO9  | 0x26 | off | ~1.80 V | `cam_vio`, sensor1 |
+| LDO14 | 0x2b | off | ~2.80 V | `cam_vana`, rear wide |
+| LDO15 | 0x2c | off | ~2.80 V | `cam_vana`, sensor1 |
+
+Every camera rail is **off but pre-programmed to the voltages the vendor DT asks for,
+and writable from userspace**. Nothing is fused, locked or TZ-owned — consistent with
+the handbook's record of accidentally enabling two camera rails during the `0x1f`
+off-by-one episode.
+
+**The Android-side test, still owed (~2 minutes, needs hands).** Boot Android (which
+works and has rooted adb) and open the camera app. `capture/facts-20261107-010152/logs/
+last_kmsg.txt` cannot answer it: the whole 2 MB log has only **7** `CAM_*` lines, all
+from shutdown, so the camera was never streamed during that session. The
+`CameraService_w` SIGSEGVs at t≈1067 in that log are **not** evidence — `SensorHubManage`,
+`sensorThread` and others self-signal in the same cluster, so it is a system-wide event,
+not a camera fault.
+
+### Q3a. Can mainline drive the cameras at all? (new, 2026-11-14)
+
+Separate question from Q3, and the one that actually matters.
+
+**Upstream state.** Mainline 7.4-rc1 has **no `qcom,sm8350-camss` and no
+`camcc-sm8350`**. But the distance is smaller than "out of scope" implied:
+
+| | q2q (SM8350, vendor DT) | mainline `sc8280xp-camss` |
+|---|---|---|
+| CSIPHY | `qcom,csiphy-v1.2.3` @ `0xac6a000` | @ `0xac65000` |
+| CSID | `qcom,csid580` @ `0xacb5200` | @ `0xacb3000` |
+| CSID lite | `qcom,csid-lite580` @ `0xacd9200` | — |
+| ops | — | `csid_ops_gen2` + `vfe_ops_170` |
+
+SC8280XP is the **same CAMSS generation**, in the same register neighbourhood, driven by
+ops that already exist. So the port shape is: a resource table, a `camcc` driver and DT
+— not a new hardware-ops implementation. `camcc-lahaina.c` (3079 lines) is in the
+Samsung drop; mainline's `camcc-sm8450.c` is 3131 lines; and `tools/port-dispcc.py`
+exists for exactly this kind of mechanical register-map substitution.
+
+**The hard limit, which no amount of porting removes.** Mainline `camss` is a **CSI
+receiver, not an ISP**. It emits `SBGGR10P` / `SRGGB12P` / `UYVY` straight to memory.
+There is **no IPE, no BPS, no ICP driver** in mainline (`icp_ahb` appears only as a clock
+it ungates), so Titan 580's image-processing hardware stays dark and demosaic + 3A are
+software. Expect "a real camera that takes recognisable pictures", not One UI output.
+
+**Cheapest first experiment — one DT delta, no `camcc` needed.** Not every camera
+peripheral is behind CCI:
+
+```
+qcom,eeprom11   slave 0xa2 (7-bit 0x51)   on i2c@998000 (qup6, TLMM 28/29)
+                needs only cam_vio = s2mpb02-ldo7
+qcom,ois@51     slave 0xc4 (7-bit 0x62)   on i2c@988000 (qup2, TLMM 12/13)
+                + GPIO 173 (MCU_RESET0), 168 (MCU_BOOT0)
+```
+
+Those are plain QUP GENI buses that mainline already drives, and **an EEPROM needs no
+MCLK, no CCI, no camcc and no CSIPHY** — just `cam_vio`. So:
+
+1. Free TLMM 28/29 (inside `gpio-reserved-ranges = <26 6>`) and enable `i2c6`. Both pins
+   are muxed to `qup6` by the vendor's **non-secure** kernel, which is this project's
+   established safety criterion.
+2. `i2cset -f -y 0 0x59 0x24 0xb0` → LDO7 on at 1.8 V.
+3. `i2cdetect` for `0x51`, then dump the EEPROM.
+
+A reply from that EEPROM proves the modules are powered, alive and reachable from
+mainline, and turns "out of scope" into a workload estimate. It also yields the module's
+per-unit calibration data, which is a large part of why stock output looks the way it
+does.
 
 ### Q4. Dual-cell charging ✅ **ANSWERED** → [10-battery-plan.md](10-battery-plan.md)
 Short version: it is **not** reverse engineering — the full GPL source and register map

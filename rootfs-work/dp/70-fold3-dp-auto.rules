@@ -1,0 +1,16 @@
+# Fold 3: trigger the DisplayPort bring-up on every USB-C attach/detach.
+#
+# max77705-charger's `online` follows VBUS, so this is the only event the
+# kernel gives us for a plug on this board -- there is no Type-C driver, and
+# the dock's USB hub does not enumerate. fold3-dp-auto decides for itself
+# whether what arrived is a dock, a charger or a detach.
+#
+# --no-block because udev must not wait on a handshake that can take 25 s.
+#
+# Both "add" and "change" matter. "change" is the live plug/unplug. "add" is
+# the coldplug at boot, which is the ONLY event we get when the dock was
+# already attached before the phone started -- without it, "plug in the dock,
+# then reboot" leaves the TV dark, which is a perfectly normal way to use
+# this. The script re-checks the port itself, so a spurious trigger is free.
+ACTION=="add|change", SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_NAME}=="max77705-charger", \
+  RUN+="/usr/bin/systemctl --no-block start fold3-dp-auto.service"

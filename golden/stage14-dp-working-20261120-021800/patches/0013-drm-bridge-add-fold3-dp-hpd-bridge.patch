@@ -1,0 +1,201 @@
+diff --git a/drivers/gpu/drm/bridge/Kconfig b/drivers/gpu/drm/bridge/Kconfig
+index 4a57d49b4..59f744192 100644
+--- a/drivers/gpu/drm/bridge/Kconfig
++++ b/drivers/gpu/drm/bridge/Kconfig
+@@ -30,6 +30,21 @@ config DRM_AUX_HPD_BRIDGE
+ 	  Simple bridge that terminates the bridge chain and provides HPD
+ 	  support.
+ 
++config DRM_FOLD3_DP_HPD
++	tristate "Galaxy Z Fold 3 software HPD source for DP-over-USB-C"
++	depends on DRM_BRIDGE && OF
++	select DRM_AUX_HPD_BRIDGE
++	help
++	  Terminating HPD bridge for the Samsung Galaxy Z Fold 3's USB-C
++	  DisplayPort output, driven from sysfs. DisplayPort Alt Mode carries
++	  hot-plug in-band over CC rather than on a wire, and this board's
++	  Type-C port is a MAX77705 with no mainline driver, so the HPD event
++	  has to be injected by hand after the PD handshake.
++
++	  Say Y here, not M: the msm DP controller is a component of the single
++	  msm DRM device and will defer forever without this bridge, taking
++	  both DSI panels down with it.
++
+ menu "Display Interface Bridges"
+ 	depends on DRM && DRM_BRIDGE
+ 
+diff --git a/drivers/gpu/drm/bridge/Makefile b/drivers/gpu/drm/bridge/Makefile
+index 15cc821d8..1f611e9cc 100644
+--- a/drivers/gpu/drm/bridge/Makefile
++++ b/drivers/gpu/drm/bridge/Makefile
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ obj-$(CONFIG_DRM_AUX_BRIDGE) += aux-bridge.o
+ obj-$(CONFIG_DRM_AUX_HPD_BRIDGE) += aux-hpd-bridge.o
++obj-$(CONFIG_DRM_FOLD3_DP_HPD) += fold3-dp-hpd.o
+ obj-$(CONFIG_DRM_CHIPONE_ICN6211) += chipone-icn6211.o
+ obj-$(CONFIG_DRM_CHRONTEL_CH7033) += chrontel-ch7033.o
+ obj-$(CONFIG_DRM_CROS_EC_ANX7688) += cros-ec-anx7688.o
+diff --git a/drivers/gpu/drm/bridge/fold3-dp-hpd.c b/drivers/gpu/drm/bridge/fold3-dp-hpd.c
+new file mode 100644
+index 000000000..32ff5c57d
+--- /dev/null
++++ b/drivers/gpu/drm/bridge/fold3-dp-hpd.c
+@@ -0,0 +1,157 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Software HPD source for DisplayPort over USB-C, Samsung Galaxy Z Fold 3.
++ *
++ * In DisplayPort Alt Mode there is no HPD wire. The sink reports hot-plug
++ * in-band, as the HPD_State bit of a DP Status Update VDM carried over CC,
++ * and something on the AP side has to turn that into a DRM event. On
++ * Qualcomm platforms that something is normally the driver for whatever runs
++ * the Type-C port -- pmic_glink_altmode, fusb302, qcom_pmic_typec -- each of
++ * which creates a terminating HPD bridge with devm_drm_dp_hpd_bridge_alloc()
++ * and then calls drm_aux_hpd_bridge_notify().
++ *
++ * This board's Type-C port is a MAX77705, whose PD engine is driven over an
++ * opcode mailbox and has no mainline driver yet. Its VDM handshake is
++ * reproducible from userspace (see fold3-pd), so the only missing piece is a
++ * way to deliver the resulting HPD into DRM. That is all this driver is: the
++ * bridge, plus one sysfs file to assert and deassert it.
++ *
++ * Why it matters that this exists at all, and is built in:
++ *
++ *   mdss_dp --port@1--> usb_1_qmpphy --port@0--> THIS BRIDGE
++ *
++ * qmp_combo_probe() always registers a transparent bridge for itself, and
++ * aux-bridge.c then requires a next bridge on the PHY's port@0 or its probe
++ * fails. With nothing there, of_drm_find_bridge() finds nothing for the PHY,
++ * mdss_dp gets -EPROBE_DEFER forever, and because mdss_dp is a COMPONENT of
++ * the single msm DRM device the component master never completes -- so there
++ * is no DRM device at all and both DSI panels go dark with it. That is why
++ * this is not a module: a module that has not loaded yet is indistinguishable
++ * from a missing bridge, and the cost is the whole display.
++ *
++ * Without HPD, msm_dp_bridge_detect() refuses to look at the sink:
++ *
++ *	ret = msm_dp_aux_is_link_connected(priv->aux);
++ *	if (!priv->plugged && !ret)
++ *		goto end;			<- "aux not connected"
++ *
++ * msm_dp_aux_is_link_connected() reads the DP controller's own HPD state
++ * machine, which on USB-C is never driven by hardware. One notify through
++ * this bridge reaches msm_dp_bridge_hpd_notify() -> msm_dp_hpd_plug_handle(),
++ * which sets ->plugged, reads the DPCD and trains the link; from then on
++ * detect() works normally.
++ *
++ * Usage, after the PD side has entered DP mode and the AUX mux is set:
++ *	echo 1 > /sys/bus/platform/drivers/fold3-dp-hpd/<dev>/hpd
++ *
++ * This is a stepping stone. When the MAX77705 Type-C driver lands it should
++ * own this bridge and drive it from the sink's own DP Status VDMs, and the
++ * sysfs file becomes a debugging aid rather than the interface.
++ */
++
++#include <linux/auxiliary_bus.h>
++#include <linux/device.h>
++#include <linux/err.h>
++#include <linux/kernel.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/sysfs.h>
++
++#include <drm/bridge/aux-bridge.h>
++#include <drm/drm_connector.h>
++
++struct fold3_dp_hpd {
++	struct auxiliary_device *bridge;
++	bool asserted;
++};
++
++static ssize_t hpd_show(struct device *dev, struct device_attribute *attr,
++			char *buf)
++{
++	struct fold3_dp_hpd *hpd = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf, "%d\n", hpd->asserted);
++}
++
++static ssize_t hpd_store(struct device *dev, struct device_attribute *attr,
++			 const char *buf, size_t len)
++{
++	struct fold3_dp_hpd *hpd = dev_get_drvdata(dev);
++	bool assert;
++	int ret;
++
++	ret = kstrtobool(buf, &assert);
++	if (ret)
++		return ret;
++
++	hpd->asserted = assert;
++	dev_info(dev, "HPD %s\n", assert ? "asserted" : "deasserted");
++
++	/*
++	 * Reaches msm_dp through the bridge chain: drm_bridge_hpd_notify() ->
++	 * drm_bridge_connector_hpd_cb() -> every .hpd_notify in the chain.
++	 */
++	drm_aux_hpd_bridge_notify(&hpd->bridge->dev,
++				  assert ? connector_status_connected
++					 : connector_status_disconnected);
++
++	return len;
++}
++
++static DEVICE_ATTR_RW(hpd);
++
++static struct attribute *fold3_dp_hpd_attrs[] = {
++	&dev_attr_hpd.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(fold3_dp_hpd);
++
++static int fold3_dp_hpd_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct fold3_dp_hpd *hpd;
++	int ret;
++
++	hpd = devm_kzalloc(dev, sizeof(*hpd), GFP_KERNEL);
++	if (!hpd)
++		return -ENOMEM;
++
++	/*
++	 * The bridge carries THIS node as its of_node, which is what makes
++	 * of_drm_find_bridge() resolve the PHY's port@0 endpoint to it.
++	 */
++	hpd->bridge = devm_drm_dp_hpd_bridge_alloc(dev, dev->of_node);
++	if (IS_ERR(hpd->bridge))
++		return dev_err_probe(dev, PTR_ERR(hpd->bridge),
++				     "failed to allocate the HPD bridge\n");
++
++	dev_set_drvdata(dev, hpd);
++
++	ret = devm_drm_dp_hpd_bridge_add(dev, hpd->bridge);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "failed to add the HPD bridge\n");
++
++	return 0;
++}
++
++static const struct of_device_id fold3_dp_hpd_of_match[] = {
++	{ .compatible = "fold3,dp-hpd-bridge" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, fold3_dp_hpd_of_match);
++
++static struct platform_driver fold3_dp_hpd_driver = {
++	.probe = fold3_dp_hpd_probe,
++	.driver = {
++		.name = "fold3-dp-hpd",
++		.of_match_table = fold3_dp_hpd_of_match,
++		.dev_groups = fold3_dp_hpd_groups,
++	},
++};
++module_platform_driver(fold3_dp_hpd_driver);
++
++MODULE_DESCRIPTION("Software HPD source for DP-over-USB-C on the Galaxy Z Fold 3");
++MODULE_LICENSE("GPL");

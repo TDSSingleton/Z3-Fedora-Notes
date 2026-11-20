@@ -1,0 +1,655 @@
+#!/usr/bin/python3
+"""Fold 3: bring up DisplayPort over USB-C. Runs ON the device.
+
+There are four layers between "a dock is plugged in" and "a picture on the
+TV", and on this unit not one of them has a driver that joins them up yet.
+This tool drives all four by hand so the hardware path can be proven before
+any of it is written as a kernel driver. See HANDBOOK 37.
+
+  1. PD / alt mode    make the sink enter DisplayPort mode and agree a pin
+                      assignment. That is fold3-pd's job, and it works -- the
+                      MAX77705's PD firmware transports the VDMs and we drive
+                      the state machine over its opcode mailbox.
+  2. AUX / SBU mux    DP's AUX channel rides SBU1/SBU2, which on this board go
+                      through an analog switch controlled by two plain TLMM
+                      lines. Nothing in mainline knows about them.
+  3. PHY orientation  which way up the cable is. The DT fixes this at "normal"
+                      because no driver calls typec_switch_set(), so a cable
+                      the other way up needs SW_PORTSELECT poked.
+  4. DRM              ask the DP connector to probe. msm_dp does the rest by
+                      itself: msm_dp_bridge_detect() powers the PHY, enables
+                      AUX transfers and reads the sink's DPCD, so a working
+                      AUX channel is all it needs -- no HPD plumbing at all.
+
+Layers 2 and 3 are MMIO pokes behind the kernel's back, like fold3-qscratch.
+That is a stopgap and it is deliberately loud about it; the real fix is the
+Type-C port driver that owns the mux and the orientation switch.
+
+WHAT IS NOT GUESSED HERE
+------------------------
+The AUX switch polarity is from the vendor DP driver, which documents it in a
+table (SM-F926B/Kernel/techpack/display/msm/dp/dp_power.c,
+secdp_power_set_gpio):
+
+    | usbplug-cc(dir) | orientation | flip  | aux-sel |
+    |        0        |     CC1     | false |    0    |
+    |        1        |     CC2     | true  |    1    |
+
+with aux-en driven to 0 to enable and 1 to disable. Both of the properties
+that would change this -- "secdp,aux-sel-inv" and "secdp,redrv" -- are absent
+from q2q_eur_openx_w00_r08.dts, so the plain table applies.
+
+The pins are TLMM 15 (aux-sel) and TLMM 16 (aux-en), from the vendor pinctrl
+states sde_dp_aux_sel_* and sde_dp_aux_en_*. Both are freed from
+gpio-reserved-ranges in our board DTS.
+
+Usage:
+  fold3-dp on [--pin X] [--wait N] [--force] [--force-hpd]
+                           the whole sequence, and report what happened.
+                           Re-running it on a live session is now safe: the
+                           alt-mode handshake is skipped if a mode is already
+                           entered, and HPD is taken from the sink instead of
+                           forced. --wait N holds N seconds for the display to
+                           be switched on; --force-hpd goes ahead without it;
+                           --force re-sends Enter Mode / DP Configure, which
+                           can wedge the dock until a physical replug.
+  fold3-dp off [--exit-mode]
+                           drop our HPD and the AUX switch. Exit Mode is NOT
+                           sent unless asked: unplugging is the clean way out.
+  fold3-dp status          what each of the five layers thinks
+  fold3-dp dpstatus [--watch N]
+                           poll the SINK's own HPD. Safe to leave running, and
+                           the only honest answer to "is the TV awake?"
+  fold3-dp aux {on|off}    the AUX switch alone (polarity from live CC state)
+  fold3-dp orient {normal|reverse|auto|show}
+  fold3-dp hpd [0|1]       read, or drive, OUR software HPD
+  fold3-dp probe           kick a DRM re-probe of the DP connector
+  fold3-dp modes           what the sink offered, if anything
+"""
+
+import glob
+import importlib.machinery
+import importlib.util
+import mmap
+import os
+import re
+import struct
+import subprocess
+import sys
+import time
+
+# ---------------------------------------------------------------------------
+# share fold3-pd's MAX77705 mailbox code rather than reimplementing it. It has
+# no .py suffix (it is a command), so load it by path.
+# ---------------------------------------------------------------------------
+def load_fold3_pd():
+    for path in ("/usr/local/sbin/fold3-pd",
+                 os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "fold3-pd")):
+        if os.path.exists(path):
+            loader = importlib.machinery.SourceFileLoader("fold3pd", path)
+            spec = importlib.util.spec_from_loader("fold3pd", loader)
+            mod = importlib.util.module_from_spec(spec)
+            loader.exec_module(mod)
+            return mod
+    sys.exit("fold3-dp: cannot find fold3-pd")
+
+
+pd = load_fold3_pd()
+
+# ---------------------------------------------------------------------------
+# layer 2: the AUX/SBU analog switch, TLMM 15 and 16, over /dev/mem
+#
+# SM8350's TLMM is a single tile at 0x0f100000 and pinctrl-sm8350.c lays each
+# pin out with REG_SIZE 0x1000:
+#     ctl_reg = 0x1000 * pin        [5:2] FUNC_SEL (0 = gpio), bit 9 OE
+#     io_reg  = 0x1000 * pin + 4    bit 0 = input value, bit 1 = output value
+#
+# Written through /dev/mem rather than the GPIO chardev on purpose: a chardev
+# line request is released when the fd closes, so a one-shot command could not
+# hold the switch on. A kernel driver is the right owner; until then this is
+# the only way a CLI tool can leave the mux set.
+# ---------------------------------------------------------------------------
+TLMM_BASE = 0x0F100000
+PIN_AUX_SEL, PIN_AUX_EN = 15, 16
+FUNC_SEL_MASK, FUNC_GPIO, OE_BIT, OUT_BIT, IN_BIT = 0x3C, 0, 1 << 9, 1 << 1, 1 << 0
+PAGESZ = 0x1000
+
+
+class Mmio:
+    """One mmap per 4 KiB page of MMIO, through /dev/mem."""
+
+    def __init__(self):
+        self.fd = os.open("/dev/mem", os.O_RDWR | os.O_SYNC)
+        self.pages = {}
+
+    def _page(self, addr):
+        pg = addr & ~(PAGESZ - 1)
+        if pg not in self.pages:
+            try:
+                self.pages[pg] = mmap.mmap(self.fd, PAGESZ, offset=pg)
+            except OSError as e:
+                sys.exit("fold3-dp: cannot map 0x%08x: %s "
+                         "(needs STRICT_DEVMEM with IO_STRICT_DEVMEM unset)"
+                         % (pg, e))
+        return self.pages[pg], addr & (PAGESZ - 1)
+
+    def rd(self, addr):
+        m, off = self._page(addr)
+        return struct.unpack("<I", m[off:off + 4])[0]
+
+    def wr(self, addr, val):
+        m, off = self._page(addr)
+        m[off:off + 4] = struct.pack("<I", val)
+
+
+def tlmm_out(io, pin, value):
+    """Drive a TLMM pin as a GPIO output. Muxes to the gpio function and sets
+    OE as well as the value -- the bootloader leaves these pins in the vendor
+    'suspend' state, so neither can be assumed."""
+    ctl = TLMM_BASE + 0x1000 * pin
+    v = io.rd(ctl)
+    v = (v & ~FUNC_SEL_MASK) | (FUNC_GPIO << 2) | OE_BIT
+    io.wr(ctl, v)
+    iov = io.rd(ctl + 4)
+    io.wr(ctl + 4, (iov | OUT_BIT) if value else (iov & ~OUT_BIT))
+
+
+def tlmm_read(io, pin):
+    ctl = TLMM_BASE + 0x1000 * pin
+    c, v = io.rd(ctl), io.rd(ctl + 4)
+    return {"func": (c & FUNC_SEL_MASK) >> 2, "oe": bool(c & OE_BIT),
+            "out": bool(v & OUT_BIT), "in": bool(v & IN_BIT)}
+
+
+def aux_switch(io, enable, cc2=False):
+    """aux-sel first, then aux-en, with the vendor's 100 us settle between --
+    secdp_power_set_gpio() does it in that order and the switch wants the
+    polarity settled before it is enabled."""
+    if enable:
+        tlmm_out(io, PIN_AUX_SEL, 1 if cc2 else 0)
+        time.sleep(0.0002)
+        tlmm_out(io, PIN_AUX_EN, 0)          # active low
+    else:
+        tlmm_out(io, PIN_AUX_EN, 1)
+
+
+# ---------------------------------------------------------------------------
+# layer 3: PHY lane orientation, QPHY_V3_DP_COM_TYPEC_CTRL
+#
+# The combo PHY's DP_COM block is at the top of its register window
+# (qmp_combo_offsets_v3 .com = 0), and phy-qcom-qmp-dp-com-v3.h puts
+# TYPEC_CTRL at +0x10, so 0x088e8010. The driver writes SW_PORTSELECT_MUX plus
+# SW_PORTSELECT_VAL for a reversed cable and calls that the whole of
+# orientation handling ("Use software based port select and switch on typec
+# orientation"), so this one bit IS the lane swap.
+#
+# It is only meaningful while the DP PHY is powered: qmp_combo_com_init()
+# rewrites this register from qmp->orientation every time it runs, which
+# includes every re-probe. So set it AFTER the PHY is up, and expect a
+# re-probe to undo it -- which is why `on` sets it between the first probe and
+# the second.
+# ---------------------------------------------------------------------------
+QMP_DP_COM = 0x088E8000
+TYPEC_CTRL = QMP_DP_COM + 0x10
+PHY_MODE_CTRL = QMP_DP_COM + 0x00
+SW_PORTSELECT_VAL, SW_PORTSELECT_MUX = 1 << 0, 1 << 1
+
+
+def phy_is_up(conn=None):
+    """Is the QMP combo PHY clocked?
+
+    This matters because every read below goes through /dev/mem, straight at
+    0x088e8000, with no driver in the way. On Qualcomm MMIO an access to a
+    block whose AHB clock is gated does not return garbage, it raises an
+    external abort, and from the non-secure world that is how 0x17c10000 took
+    the phone down. So these registers are only safe while something holds the
+    PHY's cfg_ahb clock on.
+
+    The honest reason we have never been bitten here: 0x088e8000 is the
+    dp_com region of the QMP *combo* PHY, and qmp_combo_com_init() is
+    refcounted across the USB and DP halves. dwc3 holds it on for USB, which
+    on this unit is always bound -- so in practice the clock is on whenever
+    USB is. That, not luck, is why our /dev/mem pokes worked.
+
+    So: PHY is up if the DP link is up, OR if a dwc3 is bound and holding the
+    combo PHY. If neither, refuse -- there is nothing to read in that state
+    anyway, because the PHY driver rewrites TYPEC_CTRL on every enable.
+    """
+    if conn is None:
+        conn = dp_connector()
+    if conn:
+        try:
+            with open(os.path.join(conn, "status")) as f:
+                if f.read().strip() == "connected":
+                    return True
+        except OSError:
+            pass
+    # dwc3 bound => qmp_combo_com_init() has run and cfg_ahb is on.
+    return bool(glob.glob("/sys/bus/platform/drivers/dwc3/*/udc")
+                or glob.glob("/sys/bus/platform/drivers/dwc3/*.dwc3"))
+
+
+def orientation_get(io):
+    v = io.rd(TYPEC_CTRL)
+    return v, bool(v & SW_PORTSELECT_VAL), bool(v & SW_PORTSELECT_MUX)
+
+
+def orientation_set(io, reverse):
+    v = io.rd(TYPEC_CTRL) | SW_PORTSELECT_MUX
+    v = (v | SW_PORTSELECT_VAL) if reverse else (v & ~SW_PORTSELECT_VAL)
+    io.wr(TYPEC_CTRL, v)
+    return io.rd(TYPEC_CTRL)
+
+
+# ---------------------------------------------------------------------------
+# layer 3b: HPD
+#
+# DisplayPort Alt Mode has no HPD wire. The sink reports hot-plug in-band, in
+# the HPD_State bit of a DP Status Update VDM, and msm_dp will not look at the
+# sink until something has told it so:
+#
+#       ret = msm_dp_aux_is_link_connected(priv->aux);
+#       if (!priv->plugged && !ret)
+#               goto end;               <- "aux not connected"
+#
+# That function reads the DP controller's own HPD state machine, which nothing
+# drives on USB-C -- measured as "aux link status: 0". One notify through the
+# terminating HPD bridge reaches msm_dp_bridge_hpd_notify() ->
+# msm_dp_hpd_plug_handle(), which sets ->plugged, reads the DPCD and trains
+# the link; detect() works normally from then on.
+#
+# drivers/gpu/drm/bridge/fold3-dp-hpd.c provides that bridge and this file.
+# ---------------------------------------------------------------------------
+HPD_DRIVER = "/sys/bus/platform/drivers/fold3-dp-hpd"
+
+
+def hpd_path():
+    """The `hpd` attribute of our HPD bridge platform device, or None if the
+    driver is not bound -- which would also mean the DP bridge chain has no
+    terminator, so there would be no DP connector either."""
+    for d in sorted(glob.glob(os.path.join(HPD_DRIVER, "*", "hpd"))):
+        return d
+    return None
+
+
+def hpd_get(path):
+    try:
+        return open(path).read().strip() == "1"
+    except OSError:
+        return None
+
+
+def hpd_set(path, on):
+    with open(path, "w") as f:
+        f.write("1" if on else "0")
+
+
+# ---------------------------------------------------------------------------
+# layer 4: DRM
+# ---------------------------------------------------------------------------
+def dp_connector():
+    """The DP connector's sysfs directory, or None if the kernel has no DP at
+    all -- which on this device means msm.ko was built without DRM_MSM_DP, or
+    was never pushed after the config changed. That is a one-line check worth
+    making explicitly: build-kernel.sh does not build modules."""
+    for d in sorted(glob.glob("/sys/class/drm/card*-DP-*")):
+        return d
+    return None
+
+
+def drm_probe(conn):
+    """Writing "detect" to a connector's status sets force = 0 and, because
+    !connector->force is then true, ALWAYS re-runs fill_modes() -- i.e. a full
+    re-probe including ->detect. (drm_sysfs.c status_store.)"""
+    try:
+        with open(os.path.join(conn, "status"), "w") as f:
+            f.write("detect")
+        return True
+    except OSError as e:
+        print("  DRM probe failed: %s" % e)
+        return False
+
+
+def drm_status(conn):
+    out = {}
+    for k in ("status", "enabled", "dpms"):
+        try:
+            out[k] = open(os.path.join(conn, k)).read().strip()
+        except OSError:
+            out[k] = "?"
+    try:
+        modes = [m for m in open(os.path.join(conn, "modes")).read().split()
+                 if m]
+    except OSError:
+        modes = []
+    out["modes"] = modes
+    return out
+
+
+# ---------------------------------------------------------------------------
+# glue
+# ---------------------------------------------------------------------------
+def cc_orientation(p):
+    """CCPinStat: 1 = CC1 (normal), 2 = CC2 (reversed). This is the only
+    authoritative statement of which way up the cable is, and it comes from
+    the MAX77705's own Type-C state machine."""
+    s = pd.decode_status(p)
+    return s["ccpinstat"], s
+
+
+def cmd_status(p, io):
+    conn = dp_connector()
+    s_pd = pd.decode_status(p)
+    print("1. PD / alt mode")
+    pd.cmd_status(p)
+    print()
+    print("2. AUX/SBU switch (TLMM %d sel, %d en)" % (PIN_AUX_SEL, PIN_AUX_EN))
+    sel, en = tlmm_read(io, PIN_AUX_SEL), tlmm_read(io, PIN_AUX_EN)
+    # OE is bit 9 of the pin's ctl register. With it clear the pad is an
+    # INPUT, so `out` is just the last value written to a register that is
+    # driving nothing -- reporting it as the switch position is a false
+    # reading, and this pair of pins is the one place we cannot afford one.
+    print("   aux-sel  func=%d oe=%d out=%d  -> %s"
+          % (sel["func"], sel["oe"], sel["out"],
+             ("CC2" if sel["out"] else "CC1") if sel["oe"]
+             else "NOT DRIVEN (pad is an input; boot default)"))
+    print("   aux-en   func=%d oe=%d out=%d  -> %s"
+          % (en["func"], en["oe"], en["out"],
+             ("switch DISABLED" if en["out"] else "switch enabled") if en["oe"]
+             else "NOT DRIVEN (pad is an input; switch state unknown)"))
+    print()
+    print("3. PHY orientation (QPHY_V3_DP_COM_TYPEC_CTRL @ 0x%08x)" % TYPEC_CTRL)
+    if not phy_is_up(conn):
+        print("   SKIPPED: neither the DP link nor dwc3 is holding the combo")
+        print("   PHY's cfg_ahb clock, and an unclocked read of 0x088e8000")
+        print("   through /dev/mem aborts rather than returning garbage.")
+        print("   See phy_is_up(). Nothing to see in this state anyway.")
+    else:
+        v, val, mux = orientation_get(io)
+        print("   0x%08x  SW_PORTSELECT_MUX=%d VAL=%d -> %s"
+              % (v, mux, val, "reversed (CC2)" if val else "normal (CC1)"))
+        print("   PHY_MODE_CTRL 0x%08x  (bit0 USB3, bit1 DP)"
+              % io.rd(PHY_MODE_CTRL))
+    print()
+    print("3b. HPD (software; DP alt mode has no HPD wire)")
+    # Two different HPDs, and confusing them wasted a whole evening. The
+    # sink's is the truth -- what the dock sees on its HDMI port, reported
+    # in-band over CC. Ours is a lie we tell msm_dp so that it will look at
+    # the sink at all. If the first is 0 and the second is 1, we are training
+    # a link into something that is not there.
+    if s_pd["enter_mode"]:
+        st = pd.dp_status_update(p, quiet=True)
+        if st is None:
+            print("   sink: DP Status Update got no answer (mode may be stale)")
+        else:
+            print("   sink:  %s" % pd.describe_dp_status(st))
+            print("          -> its own display is %s"
+                  % ("PLUGGED IN" if st & (1 << 7) else "NOT plugged in"))
+    else:
+        print("   sink:  no alt mode entered, nothing to ask")
+    hp = hpd_path()
+    if hp:
+        print("   ours:  %s = %s"
+              % (hp, "asserted" if hpd_get(hp) else "deasserted"))
+    else:
+        print("   NO fold3-dp-hpd DEVICE. Without it the bridge chain has no")
+        print("   terminator at all, so there is no DP connector either.")
+    print()
+    print("4. DRM")
+    if not conn:
+        print("   NO DP CONNECTOR. msm.ko has no DRM_MSM_DP, or the module was")
+        print("   never pushed after the config change (build-kernel.sh does")
+        print("   not build modules). Check: modinfo msm | grep -c displayport")
+        return
+    st = drm_status(conn)
+    print("   %s  status=%s enabled=%s dpms=%s"
+          % (os.path.basename(conn), st["status"], st["enabled"], st["dpms"]))
+    print("   modes: %s" % (", ".join(st["modes"][:6]) or "none"))
+
+
+def cmd_on(p, io, pin=None, force=False, wait=0.0, force_hpd=False):
+    conn = dp_connector()
+    if not conn:
+        sys.exit("fold3-dp: no DP connector in /sys/class/drm -- msm.ko has no\n"
+                 "          DRM_MSM_DP, or was not pushed after the rebuild.")
+
+    cc, s = cc_orientation(p)
+    if cc == 0 and s["ccstat"] == 0:
+        sys.exit("fold3-dp: nothing attached (CC_STATUS0 = 0x00)")
+    cc2 = (cc == 2)
+    print("cable is on %s -> %s orientation"
+          % (pd.CC_PIN.get(cc, "?"), "reversed" if cc2 else "normal"))
+
+    # Being the SOURCE means the far end asked US for power, so VBUS has to
+    # come from the OTG boost before its PD controller is even alive. Being
+    # the SINK means it powers itself and the boost must stay OFF -- two
+    # sources on one VBUS is exactly what not to do.
+    if s["ccstat"] == 2 and not s["vbusdet"]:
+        print("!! we are the SOURCE and there is no VBUS: the sink cannot talk")
+        print("   PD until it is powered. Run `fold3-otg on` first.")
+    elif s["ccstat"] == 1:
+        print("the sink powers itself (we are the SINK); the OTG boost must be"
+              " off")
+
+    print()
+    print("--- 1. PD: enter DisplayPort alt mode ---")
+    res = pd.cmd_dp(p, force_pin=pin, force=force)
+    if not res or "chosen_pin" not in res:
+        sys.exit("fold3-dp: the sink did not enter DP mode; stopping here")
+
+    # The sink's own hot-plug state, from step 7 of the handshake. Everything
+    # after this point is us driving the AP side; if there is no display
+    # behind the dock then none of it can work, and knowing that NOW is worth
+    # more than a trained link into nothing.
+    sink_hpd = res.get("hpd")
+    if sink_hpd is False and wait > 0:
+        print()
+        print("the sink reports no display on its output; waiting up to %gs"
+              % wait)
+        print("(switch the TV on, or to this input, now)")
+        t0 = time.monotonic()
+        while time.monotonic() - t0 < wait:
+            time.sleep(1.0)
+            st = pd.dp_status_update(p, quiet=True)
+            if st is None:
+                continue
+            if st & (1 << 7):
+                print("  -> HPD asserted by the sink after %.0fs"
+                      % (time.monotonic() - t0))
+                sink_hpd = True
+                break
+        else:
+            print("  -> still nothing after %gs" % wait)
+
+    print()
+    print("--- 2. AUX/SBU switch on ---")
+    aux_switch(io, True, cc2=cc2)
+    sel, en = tlmm_read(io, PIN_AUX_SEL), tlmm_read(io, PIN_AUX_EN)
+    print("  aux-sel=%d (%s)  aux-en=%d (%s)"
+          % (sel["out"], "CC2" if sel["out"] else "CC1",
+             en["out"], "disabled" if en["out"] else "enabled"))
+
+    print()
+    print("--- 3. assert HPD ---")
+    hp = hpd_path()
+    if not hp:
+        sys.exit("fold3-dp: no fold3-dp-hpd device; cannot assert HPD")
+    if sink_hpd is False and not force_hpd:
+        print("  the sink says HPD=0: as far as the dock is concerned nothing")
+        print("  is plugged into its HDMI port. Asserting our software HPD")
+        print("  anyway makes msm_dp read DPCD from a sink that has no")
+        print("  downstream display, and that is where 'aux not connected'")
+        print("  and SINK_COUNT=0 come from.")
+        print("  Turn the display on and re-run (add --wait 30 to hold), or")
+        print("  pass --force-hpd to go ahead regardless.")
+        return
+    if sink_hpd is None:
+        print("  (the sink never answered DP Status, so we have no HPD of its")
+        print("   own to go by -- forcing ours is the only option)")
+    # Deassert first: the bridge only forwards a notify, so re-asserting an
+    # already-asserted HPD gives msm_dp a connect event with no edge in front
+    # of it, and its plug handler has already run.
+    hpd_set(hp, False)
+    time.sleep(0.1)
+    hpd_set(hp, True)
+    time.sleep(0.4)
+    st = drm_status(conn)
+    print("  HPD asserted -> status=%s  modes=%d"
+          % (st["status"], len(st["modes"])))
+
+    # The plug handler runs off the notify, but ask for a probe as well so a
+    # stale cached status cannot be what we report.
+    print()
+    print("--- 4. DRM probe (powers the PHY, reads DPCD over AUX) ---")
+    drm_probe(conn)
+    st = drm_status(conn)
+    print("  status=%s  modes=%d" % (st["status"], len(st["modes"])))
+
+    if st["status"] != "connected" and cc2:
+        # The DT pins the PHY to the normal orientation, so a reversed cable
+        # has its lanes swapped. Fix the lane mux now that the PHY is up and
+        # probe again.
+        print()
+        print("--- 5. not connected and the cable is reversed: swap the lanes ---")
+        print("  TYPEC_CTRL -> 0x%08x" % orientation_set(io, True))
+        drm_probe(conn)
+        st = drm_status(conn)
+        print("  status=%s  modes=%d" % (st["status"], len(st["modes"])))
+
+    print()
+    if st["status"] == "connected":
+        print("DP IS UP: %s, %d modes" % (os.path.basename(conn), len(st["modes"])))
+        print("  %s" % ", ".join(st["modes"][:8]))
+        print("Now tell the compositor to use it (kscreen-doctor -o, or")
+        print("Plasma's Display Configuration).")
+    else:
+        print("DP did not come up. status=%s" % st["status"])
+        print("In order of likelihood:")
+        print("  * flip the plug -- the lane swap poke is a stopgap and the")
+        print("    PHY rewrites that register on every re-probe")
+        print("  * the TV is off, or on another input, so the dock's HDMI side")
+        print("    never asserted HPD (fold3-pd dp reports the sink's hpd bit)")
+        print("  * check journalctl -k for msm_dp (NOT dmesg -- see HANDBOOK)")
+
+
+def cmd_off(p, io, exit_mode=False):
+    conn = dp_connector()
+    hp = hpd_path()
+    if hp:
+        print("deasserting HPD")
+        hpd_set(hp, False)
+    print("disabling the AUX switch")
+    aux_switch(io, False)
+    # Exit Mode is NOT sent by default any more.
+    #
+    # Samsung's driver only exits the mode on detach, never on a live cable,
+    # and sending it while the dock is still attached leaves the two ends
+    # disagreeing about state: we think the mode is gone, the dock's own
+    # record may not be, and it will not re-offer DisplayPort until the plug
+    # is physically pulled. That is the most likely explanation for the dock
+    # that stopped answering on 2026-11-19 while still working on a phone.
+    #
+    # Turning our HPD and the AUX switch off is enough to stop driving the
+    # link, which is all `off` is for.
+    if not exit_mode:
+        print("NOT sending Exit Mode (--exit-mode to send it).")
+        print("  Unplugging the cable is the clean way to leave the mode; an")
+        print("  Exit Mode on a live cable can wedge the dock until a replug.")
+        return
+    try:
+        hdr = pd.vdm_header(pd.VDM_CMD_EXIT_MODE, pd.SVID_DP, objpos=1)
+        p.vdm_req(1, hdr)
+        print("sent Exit Mode")
+    except (TimeoutError, IOError, OSError) as e:
+        print("Exit Mode failed (harmless if nothing is attached): %s" % e)
+    if conn:
+        drm_probe(conn)
+        print("DRM status now %s" % drm_status(conn)["status"])
+
+
+def main():
+    args = sys.argv[1:]
+    cmd = args[0] if args else "status"
+    p = pd.Max77705PD()
+    io = Mmio()
+
+    if cmd == "status":
+        cmd_status(p, io)
+    elif cmd == "on":
+        pin = None
+        if "--pin" in args:
+            name = args[args.index("--pin") + 1].upper()
+            pin = next((b for b, n in pd.PIN_NAMES.items() if n == name), None)
+            if pin is None:
+                sys.exit("fold3-dp: --pin wants one of A B C D E F")
+        wait = 0.0
+        if "--wait" in args:
+            i = args.index("--wait")
+            wait = float(args[i + 1]) if len(args) > i + 1 else 30.0
+        cmd_on(p, io, pin, force="--force" in args, wait=wait,
+               force_hpd="--force-hpd" in args)
+    elif cmd == "off":
+        cmd_off(p, io, exit_mode="--exit-mode" in args)
+    elif cmd == "dpstatus":
+        iv = None
+        if "--watch" in args:
+            i = args.index("--watch")
+            iv = float(args[i + 1]) if len(args) > i + 1 else 1.0
+        pd.cmd_dpstatus(p, iv)
+    elif cmd == "aux":
+        which = args[1] if len(args) > 1 else "on"
+        cc, _ = cc_orientation(p)
+        aux_switch(io, which == "on", cc2=(cc == 2))
+        print("aux switch %s (polarity %s)"
+              % (which, pd.CC_PIN.get(cc, "?")))
+    elif cmd == "orient":
+        which = args[1] if len(args) > 1 else "show"
+        if not phy_is_up():
+            sys.exit("fold3-dp orient: nothing is holding the combo PHY's AHB\n"
+                     "  clock (no DP link, no dwc3), so touching 0x088e8010 would\n"
+                     "  abort. Bring the link up first; the PHY driver rewrites\n"
+                     "  this register on every enable anyway.")
+        if which == "show":
+            v, val, mux = orientation_get(io)
+            print("TYPEC_CTRL 0x%08x -> %s"
+                  % (v, "reversed (CC2)" if val else "normal (CC1)"))
+        else:
+            if which == "auto":
+                cc, _ = cc_orientation(p)
+                rev = (cc == 2)
+            else:
+                rev = (which == "reverse")
+            print("TYPEC_CTRL -> 0x%08x (%s)"
+                  % (orientation_set(io, rev),
+                     "reversed" if rev else "normal"))
+    elif cmd == "hpd":
+        hp = hpd_path()
+        if not hp:
+            sys.exit("fold3-dp: no fold3-dp-hpd device")
+        if len(args) > 1:
+            hpd_set(hp, args[1] in ("1", "on", "yes", "true"))
+        print("hpd = %s" % ("asserted" if hpd_get(hp) else "deasserted"))
+
+    elif cmd == "probe":
+        conn = dp_connector()
+        if not conn:
+            sys.exit("fold3-dp: no DP connector")
+        drm_probe(conn)
+        st = drm_status(conn)
+        print("%s status=%s modes=%d"
+              % (os.path.basename(conn), st["status"], len(st["modes"])))
+    elif cmd == "modes":
+        conn = dp_connector()
+        if not conn:
+            sys.exit("fold3-dp: no DP connector")
+        st = drm_status(conn)
+        print("status=%s" % st["status"])
+        for m in st["modes"]:
+            print("  %s" % m)
+    else:
+        sys.exit(__doc__.strip().split("Usage:")[-1])
+
+
+if __name__ == "__main__":
+    main()

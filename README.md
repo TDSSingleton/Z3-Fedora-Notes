@@ -35,18 +35,26 @@ console. No prebuilt images and no vendor firmware are included — see
 | LTE data | works | MPSS + IPA + ModemManager, ~14/9 Mbit/s. Data and SMS only, no voice calls |
 | Sensors | works | Accelerometer, magnetometer, light via SLPI + `hexagonrpcd`; auto-rotate on the inner screen |
 | Fold switch | works | AK09970 hall sensor blanks the inner panel when closed — [`hall-work/`](hall-work/) |
-| Charging | works | ~880 mA on a wall charger via `fold3-charge.service`. No PD/AFC fast charging |
-| Battery gauge | reads | `max17042` percentage and current |
-| Keys | works | Power, volume up, volume down |
+| Charging | works | Mainline `max77705_charger` bound (2026-11-14) with a policy service on top: 1500 mA charge current, 4.35 V float, input limit by BC1.2 type with the driver's AICL backoff respected, and limits judged on the hotter of the two real pack thermistors. **Measured 2026-11-15 on a DCP wall charger over a full 36 -> 100% curve (133 min, 1607 samples): 1473 mA mean in CC, against ~880 mA on the old userspace path = 1.67x.** 67 minutes of flat CC, then 68 minutes of CV regulating 4.337 V, and +1.1 degC on the pack across the whole run. Faster charging would need AFC/PD 9 V -- **deliberately not pursued**: this is enough and the pack is not worth stressing further. Total pack current is hardware-bounded at 1800 mA by the two S2ASL01 limiters |
+| Battery gauge | reads | `max17042` percentage and current; per-cell voltage/current from both S2ASL01 limiters via `tools/charge-probe.py`. The gauge's own temperature is unusable (its TEX bit is set, so the value is host-supplied and mainline wrote nothing, leaving a frozen 27.3 degC) -- so the two real pack thermistors are read instead, on PM8350 GPIO2/GPIO3 through PMK8350's ADC7, exposed as IIO channels `batt_therm` and `sub_batt_therm`. Charging limits are judged on the hotter of the two |
+| Keys | works | Power, volume up, volume down. The power button blanks and unblanks both screens (DRM DPMS, **no suspend**) via `fold3-powerkey` -- PowerDevil's own `PowerButtonAction` does not fire here. Note the power key is `pmic_pwrkey`, not `gpio-keys`, which carries volume-up -- [`rootfs-work/powerkey/`](rootfs-work/powerkey/) |
 | Storage, thermals | works | UFS; 29 TSENS zones |
 | Cover touchscreen | not done | Separate I²C controller, deliberately deferred |
-| Audio | dropped | Both CS35L41 amps probe healthy but never receive the I²S bit clock; measured as probable hardware failure on this unit |
+| Audio out | **works over USB-C** | A digital USB-C dongle (its own DAC) plays through `snd-usb-audio`; PipeWire makes it the default sink by itself. 2026-11-14 -- [HANDBOOK.md §34](HANDBOOK.md) |
+| Audio, speakers | dropped | Both CS35L41 amps probe healthy but never receive the I²S bit clock; measured as probable hardware failure on this unit. The analog path being dead also means a **passive** jack adapter can never work -- only dongles with their own DAC |
 | Suspend | unusable | No wakeup source exists; disabled in the kernel and the rootfs |
 | RTC | read-only | The counter register is owned by TrustZone; needs NTP |
+| USB gadget | works | One configfs **composite** built in the initramfs -- `acm.0` (the `ttyGS0` console) + `ncm.0` (USB networking, `192.168.42.1`). Replaces the legacy `g_serial`, which had to go because whichever driver reaches the UDC first owns it. Enumerates at high-speed |
+| USB file transfer | partial | Mass storage was built and worked, then removed: it is a block protocol, so it can only export a filesystem image, never a folder. MTP replaces it, added on demand by a gadget rebind (measured safe with configfs: `ttyGS0` survives, zero kernel messages), with a **Plasma Mobile quick settings tile** to toggle it. Blocked on building `umtprd`, which Fedora does not package. Meanwhile `sshfs` over WiFi or `usb0` does folder-level access with no new code -- [`rootfs-work/mtp/`](rootfs-work/mtp/) |
 | USB after reboot | manual | The gadget does not re-enumerate; the cable must be replugged |
-| Voice calls, cameras, S-Pen | out of scope | Cameras are disabled by the unlock itself |
+| USB OTG host | works | Kernel #63 is dual-role; `fold3-otg on` frees ttyGS0, clears the QSCRATCH device-mode override and raises 5 V from the MAX77705's OTG boost. One port, so host mode costs the serial console and charging until `fold3-otg off` -- [`rootfs-work/otg/`](rootfs-work/otg/) |
+| USB plug detection | works | The MAX77705's CC block answers without any Type-C driver. All three states are measured: nothing (`0x00`), a host/PC (`CCStat`=SINK `0x51` + BC1.2 `0x82`), and a device attached with our boost off (`CCPinStat` set, `CCStat`=0). All four CC states are now measured including `SOURCE` (`0x8a`, a bus-powered device attached) -- the chip is a DRP (`CCCTRL1` = `0x9f`) and was never sink-only; what blocks detection is our own boost driving the connector. BC1.2 also separates a PC port from a dumb charger, so the phone can decide its own role. Role selection is left manual by choice -- one port, so host mode always costs the console and charging |
+| Display over USB-C (DP) | partial | DP alt mode works end to end (2026-11-19): PD handshake over the MAX77705 opcode mailbox, AUX/SBU mux on TLMM 15/16, link trains at RBR x 2 lanes, the sink's EDID reads (27 real modes), and KWin ran a 1280x720×60 modeset on `card0-DP-1` with both panels still live. Needs `CONFIG_DRM_FOLD3_DP_HPD` (`patches/0013`) -- DP alt mode has no HPD wire and whatever terminates the bridge chain is load-bearing for the **whole** display. **Picture came out flat blue and that is unexplained**; DPU compositing is exonerated, suspicion is on INTF0 -> DP (widebus). No hotplug yet: orientation and HPD are manual until a `max77705-typec` driver exists. HANDBOOK 37 |
+| Voice calls, S-Pen | out of scope | Not stated goals |
+| Cameras | works | **Plasma Camera runs on the phone** (2026-11-16): rear ultrawide IMX258 at 4200x3120, `camcc-sm8350` + `camss-sm8350` (`patches/0010`) + `imx258` reset-gpios (`patches/0011`), repeatable across sessions since the GDSC clock-parking fix (`patches/0012`), debayered by libcamera's CPU software ISP at 15.8 ms/frame and composited on the Adreno. Needed one non-kernel fix: the active session must have access to `/dev/dma_heap/*` or libcamera silently drops software debayering and exposes raw Bayer -- [`rootfs-work/camera/`](rootfs-work/camera/). The other four sensors are not brought up, and there is no tuning file, so colour is approximate -- [HANDBOOK.md §33](HANDBOOK.md) |
 
-Open items and untested areas are tracked in [HANDBOOK.md §30](HANDBOOK.md).
+Open items and untested areas are tracked in [HANDBOOK.md §30](HANDBOOK.md),
+and for USB/audio in [§34.7](HANDBOOK.md).
 
 ---
 
@@ -98,7 +106,7 @@ is the detailed record.
 | [`bt-work/`](bt-work/) | Bluetooth board-file tooling |
 | [`uniloader-work/`](uniloader-work/README.md) | uniLoader `q2q` board file, defconfig and load addresses |
 | [`initramfs-work/`](initramfs-work/) | `init`, the rootfs pivot, and the kexec loader |
-| [`rootfs-work/`](rootfs-work/) | Services and helpers installed into the Fedora root filesystem |
+| [`rootfs-work/`](rootfs-work/) | Services and helpers installed into the Fedora root filesystem: `charge/`, `fold/`, `otg/`, `modem/`, plus `powerkey/` (power button -> screen off), `mtp/` (`fold3-mtp` and its Plasma Mobile quick settings tile) and `usbnet/` (the `usb0` udev + NetworkManager rules) |
 | [`kernel-work/`](kernel-work/) | The kernel config fragment |
 | [`tools/`](tools/) | Build, flash, extraction and debug tooling |
 | [`golden/`](golden/) | Known-good snapshots — config, DTS, drivers and a `MANIFEST.txt` per stage |
@@ -154,8 +162,12 @@ Porting to this device involves irreversible steps and a few genuinely
 unrecoverable ones. The full list is [HANDBOOK.md §7](HANDBOOK.md); the
 essentials:
 
-- **Unlocking is a one-way door.** The Knox efuse blows permanently, and this
-  device generation disables its cameras on unlock.
+- **Unlocking is a one-way door.** The Knox efuse blows permanently. That is
+  the real cost. The widely repeated claim that this device generation *also*
+  disables its cameras on unlock is **false** -- tested on this very device
+  with `warranty_bit=1` and `flash.locked=0`: the cameras enumerate, stream
+  and read their calibration EEPROMs normally. See
+  [05-research-gaps.md](05-research-gaps.md) Q3.
 - **Never write `xbl`, `abl`, `tz`, `aop`, `devcfg` or `pmic`.** There is no
   public SM8350 Samsung Firehose programmer, so a bad write here is a brick
   with no recovery path.

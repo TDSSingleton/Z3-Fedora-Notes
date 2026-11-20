@@ -1,0 +1,139 @@
+#!/bin/bash
+# fold3-dp-auto: bring DisplayPort up by itself when a dock is plugged in.
+#
+# WHY THIS SHAPE
+#
+# There is no Type-C driver on this board, so there is no uevent that says
+# "a DisplayPort dock was attached". What there IS:
+#
+#   * max77705-charger is a power_supply, and its `online` flips on VBUS. So
+#     every USB-C attach and detach produces a power_supply CHANGE uevent,
+#     whatever is on the other end. That is our only event source and it is
+#     good enough -- udev calls us, we look at the port ourselves.
+#   * The dock's USB hub does NOT enumerate here (lsusb is empty with the
+#     dock up): this unit drops SuperSpeed, and pin assignment D gives us
+#     2 DP lanes + USB3 that we cannot use. So there is no USB add event to
+#     trigger on -- do not go looking for one again.
+#
+# Because the trigger fires for chargers too, and because the only way to ask
+# "is there DisplayPort behind this?" is to send Discover SVIDs, a charger
+# attach costs a couple of VDMs. That is what every real Type-C driver does on
+# every attach, so it is acceptable -- but we must not do it REPEATEDLY. udev
+# can fire several CHANGE events for one physical attach, and re-sending
+# alt-mode VDMs at a sink is exactly what wedged the dock on 2026-11-19. Hence
+# the NODP stamp: one failed probe per attach, then stay quiet until detach.
+#
+# Serialised with flock so overlapping uevents cannot interleave two users of
+# the PD opcode mailbox.
+
+set -u
+LOCK=/run/fold3-dp-auto.lock
+NODP=/run/fold3-dp-auto.nodp
+WAIT=${FOLD3_DP_WAIT:-20}
+
+# logger only: systemd already captures our stdout into the journal, so
+# echoing as well put every line in there twice.
+log() { logger -t fold3-dp-auto -- "$*"; }
+
+# Re-exec under flock so only one of us runs at a time. Give up rather than
+# queue: if another instance is mid-handshake, it is already doing this job.
+if [ "${FOLD3_DP_LOCKED:-}" != 1 ]; then
+	export FOLD3_DP_LOCKED=1
+	exec flock -n "$LOCK" "$0" "$@" || exit 0
+fi
+
+# i2c bus numbers shift between boots, so find the MAX77705 by its MFD address
+# (0x66) and use that bus for the usbc block at 0x25. Same trick as
+# fold3-usbd; never hardcode i2c-7.
+bus=$(basename "$(ls -d /sys/bus/i2c/devices/*-0066 2>/dev/null | head -1)" | cut -d- -f1)
+[ -n "$bus" ] || { log "no MAX77705 on any i2c bus; nothing to do"; exit 0; }
+
+reg() { i2cget -y -f "$bus" 0x25 "$1" 2>/dev/null; }
+cc0=$(reg 0x0a); bc=$(reg 0x08)
+[ -n "$cc0" ] && [ -n "$bc" ] || { log "i2c read failed (bus $bus)"; exit 0; }
+
+ccstat=$(( cc0 & 0x7 ))
+vbus=$(( (bc & 0x80) != 0 ))
+
+# WAIT for the DP connector before concluding anything.
+#
+# At boot the coldplug "add" event reaches us about one second in, while
+# msm.ko is still loading -- so /sys/class/drm has no DP connector yet. On
+# 2026-11-20 that made us report "no DisplayPort on this attach" and write the
+# NODP stamp one second into the boot, and then nothing retried once msm came
+# up: dock attached, kernel fine, TV dark, and no obvious culprit.
+#
+# "Our driver is not ready" and "the partner has no DisplayPort" are
+# completely different verdicts and must never be collapsed. The first is
+# transient and is ours; the second is terminal and is the partner's. Only the
+# second may write the stamp.
+conn=$(ls -d /sys/class/drm/*-DP-1 2>/dev/null | head -1)
+if [ -z "$conn" ]; then
+	for _ in $(seq 1 20); do
+		sleep 2
+		conn=$(ls -d /sys/class/drm/*-DP-1 2>/dev/null | head -1)
+		[ -n "$conn" ] && break
+	done
+	if [ -z "$conn" ]; then
+		# No stamp: this is our side, so a later event must be free to retry.
+		log "no DP connector after 40 s -- msm.ko has no DRM_MSM_DP, or never" \
+		    "loaded. NOT stamping: this is our fault, not the partner's."
+		exit 0
+	fi
+	log "DP connector appeared after waiting ($(basename "$conn"))"
+fi
+dp_connected=0
+[ -n "$conn" ] && [ "$(cat "$conn/status" 2>/dev/null)" = connected ] && dp_connected=1
+
+# ---- detach ------------------------------------------------------------
+# ccstat 0 = no connection. Clear the stamp so the next attach gets a fresh
+# probe, and tear the link down if we had one.
+if [ "$ccstat" = 0 ] && [ "$vbus" = 0 ]; then
+	rm -f "$NODP"
+	if [ "$dp_connected" = 1 ]; then
+		log "detached; dropping the link"
+		fold3-dp off
+	fi
+	exit 0
+fi
+
+# ---- attach ------------------------------------------------------------
+# Already up: do nothing. This is the idempotent path and it is the common
+# one, because udev will call us again for events during a live session.
+if [ "$dp_connected" = 1 ]; then
+	exit 0
+fi
+
+[ -e "$NODP" ] && exit 0		# already probed this attach: no DP here
+
+# ccstat 1 = cc_SINK: we are the sink, so something powers us -- a charger, a
+# PC, or a powered dock. That is the only case worth probing. ccstat 2 means
+# the partner wants US to power IT, which for a dock means its brick is out;
+# we must not drive VBUS to find out (see the two-sources incident).
+if [ "$ccstat" != 1 ] || [ "$vbus" != 1 ]; then
+	exit 0
+fi
+
+log "attach: CC_STATUS0=$cc0 BC_STATUS=$bc -- probing for DisplayPort"
+if out=$(fold3-dp on --wait "$WAIT" 2>&1); then
+	if printf '%s' "$out" | grep -q "^DP IS UP"; then
+		log "$(printf '%s' "$out" | grep '^DP IS UP')"
+		exit 0
+	fi
+fi
+
+# Why did it fail? Only a verdict ABOUT THE PARTNER earns the stamp.
+printf '%s' "$out" | logger -t fold3-dp-auto --
+if printf '%s' "$out" | grep -qE "does not advertise|no usable pin|DFP_D only"; then
+	reason=$(printf '%s' "$out" | grep -E "does not advertise|no usable pin|DFP_D only" | head -1)
+	log "no DisplayPort behind this partner -- ${reason#!! }; quiet until detach"
+	: > "$NODP"
+	exit 0
+fi
+
+# Anything else -- the display was not awake inside $WAIT, PD was not ready,
+# a transient i2c or DRM failure -- is OUR side or a timing matter. Leave the
+# stamp off so the next event retries.
+log "DP did not come up this time, but the partner never said it has none;" \
+    "leaving it open to retry"
+exit 0

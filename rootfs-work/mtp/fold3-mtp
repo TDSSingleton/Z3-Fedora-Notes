@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# fold3-mtp -- turn MTP (file transfer over USB) on and off.
+#
+# Why this is a rebind and not an insert/eject the way mass storage was:
+# a FunctionFS function has no USB descriptors until its daemon writes them,
+# and the gadget cannot bind to the UDC until every function in the config is
+# ready. uMTP-Responder's own example script shows the order -- start umtprd,
+# then write UDC -- so `ffs.mtp` cannot simply be present-but-idle the way an
+# empty mass-storage LUN could.
+#
+# Putting ffs.mtp in the boot-time gadget would therefore delay the WHOLE
+# gadget, ttyGS0 included, until the rootfs is up and umtprd running. That
+# would cost the initramfs its serial console, and with it the bail-out shell
+# that makes a failed boot diagnosable. So the boot gadget stays acm + ncm,
+# and MTP is added on demand, here.
+#
+# **The unbind is safe, and this was measured, not assumed** (HANDBOOK 36.5).
+# The old warning about hot-swapping the gadget was about the LEGACY g_serial
+# driver, where the unbind tore down the function instance and
+# gserial_free_line() hung waiting on every open tty. With configfs the
+# function instances outlive an unbind: /dev/ttyGS0 survived, the getty
+# survived, and the kernel logged nothing at all.
+#
+#   fold3-mtp on | off | status
+set -uo pipefail
+
+G=/sys/kernel/config/usb_gadget/fold3
+CFG="$G/configs/c.1"
+FFS=/dev/ffs-mtp
+UNIT=fold3-umtprd
+UMTPRD="${FOLD3_UMTPRD:-/usr/local/bin/umtprd}"
+
+die() { echo "!! $*" >&2; exit 1; }
+
+udc_name() { ls /sys/class/udc 2>/dev/null | head -n1; }
+udc_bound() { cat "$G/UDC" 2>/dev/null; }
+
+# configfs UNBIND NEEDS A NEWLINE. `printf "" > UDC` is a zero-length write
+# and the kernel never runs the store handler at all -- it silently does
+# nothing and the gadget stays bound. This cost a confusing test run.
+unbind() { echo "" > "$G/UDC" 2>/dev/null; }
+bind()   { echo "$1" > "$G/UDC" 2>/dev/null; }
+
+is_on() { [ -L "$CFG/ffs.mtp" ]; }
+
+require_gadget() {
+	[ -d "$G" ] || die "no composite gadget at $G -- is this the new kernel?"
+	[ -d "$CFG" ] || die "gadget has no config c.1"
+}
+
+# Always try to get the gadget back onto the UDC, whatever went wrong. Losing
+# the console AND the network because a mount failed is not acceptable.
+UDC_SAVED=""
+restore_on_error() {
+	local rc=$?
+	[ $rc -eq 0 ] && return 0
+	if [ -n "$UDC_SAVED" ] && [ -z "$(udc_bound)" ]; then
+		echo "!! failed partway; rebinding the gadget so the console comes back" >&2
+		bind "$UDC_SAVED" || echo "!! REBIND FAILED -- reboot to recover" >&2
+	fi
+	return $rc
+}
+trap restore_on_error EXIT
+
+cmd_status() {
+	require_gadget
+	echo "gadget   : UDC=[$(udc_bound)] state=$(cat /sys/class/udc/"$(udc_name)"/state 2>/dev/null)"
+	echo "functions: $(ls "$G/functions" 2>/dev/null | tr '\n' ' ')"
+	echo "in config: $(ls "$CFG" 2>/dev/null | grep -vE '^(strings|MaxPower|bmAttributes)$' | tr '\n' ' ')"
+	if is_on; then
+		echo "mtp      : ON  (umtprd $(systemctl is-active $UNIT 2>/dev/null))"
+		echo "exports  : $(grep -c '^storage' /etc/umtprd/umtprd.conf 2>/dev/null) path(s) from /etc/umtprd/umtprd.conf"
+	else
+		echo "mtp      : off"
+	fi
+}
+
+cmd_on() {
+	require_gadget
+	is_on && { echo "MTP is already on"; return 0; }
+	[ -x "$UMTPRD" ] || die "$UMTPRD is not installed.
+   Build it from https://github.com/viveris/uMTP-Responder (see HANDBOOK 36.5)
+   and install the binary there."
+	[ -f /etc/umtprd/umtprd.conf ] || die "no /etc/umtprd/umtprd.conf"
+
+	UDC_SAVED="$(udc_bound)"; [ -n "$UDC_SAVED" ] || UDC_SAVED="$(udc_name)"
+	[ -n "$UDC_SAVED" ] || die "no UDC found"
+
+	echo "unbinding the gadget (ttyGS0 survives this) ..."
+	unbind; sleep 1
+
+	mkdir -p "$G/functions/ffs.mtp" || die "could not create ffs.mtp"
+	ln -sf "$G/functions/ffs.mtp" "$CFG/ffs.mtp" || die "could not add ffs.mtp to the config"
+
+	mkdir -p "$FFS"
+	# The mount source must be the function INSTANCE name -- "mtp" for
+	# functions/ffs.mtp. Get it wrong and the mount succeeds but the gadget
+	# never becomes bindable.
+	mountpoint -q "$FFS" || mount -t functionfs mtp "$FFS" || die "functionfs mount failed"
+
+	echo "starting umtprd ..."
+	systemd-run --unit="$UNIT" --service-type=simple --collect --quiet \
+		"$UMTPRD" || die "could not start umtprd"
+
+	# umtprd writes the descriptors to ep0; the UDC is not bindable until it
+	# has. Poll rather than sleeping a fixed amount.
+	for _ in $(seq 40); do
+		[ -e "$FFS/ep1" ] && break
+		sleep 0.25
+	done
+	[ -e "$FFS/ep1" ] || die "umtprd never wrote its descriptors (no $FFS/ep1)"
+
+	echo "rebinding ..."
+	bind "$UDC_SAVED" || die "could not bind the UDC"
+	sleep 1
+	echo "MTP is on. State: $(cat /sys/class/udc/"$UDC_SAVED"/state 2>/dev/null)"
+	echo "If the host does not notice, unplug and replug the cable."
+}
+
+cmd_off() {
+	require_gadget
+	is_on || { echo "MTP is already off"; return 0; }
+
+	UDC_SAVED="$(udc_bound)"; [ -n "$UDC_SAVED" ] || UDC_SAVED="$(udc_name)"
+
+	echo "unbinding the gadget ..."
+	unbind; sleep 1
+
+	systemctl stop "$UNIT" 2>/dev/null
+	mountpoint -q "$FFS" && umount "$FFS"
+	rm -f "$CFG/ffs.mtp"
+	rmdir "$G/functions/ffs.mtp" 2>/dev/null
+
+	echo "rebinding ..."
+	bind "$UDC_SAVED" || die "could not bind the UDC"
+	sleep 1
+	echo "MTP is off. State: $(cat /sys/class/udc/"$UDC_SAVED"/state 2>/dev/null)"
+}
+
+# One word, for the Plasma Mobile quick setting to poll. Deliberately needs no
+# privileges: the gadget's configfs tree is world-readable, so the tile can
+# show the right state without sudo and only the toggle itself is privileged.
+cmd_state() {
+	if [ ! -d "$G" ]; then echo NOGADGET
+	elif is_on;    then echo ON
+	else                echo OFF
+	fi
+}
+
+case "${1:-status}" in
+	on)     cmd_on ;;
+	off)    cmd_off ;;
+	toggle) if is_on; then cmd_off; else cmd_on; fi ;;
+	status) cmd_status ;;
+	state)  cmd_state ;;
+	*)      echo "usage: fold3-mtp on|off|toggle|status|state"; exit 2 ;;
+esac

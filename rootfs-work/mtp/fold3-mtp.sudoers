@@ -1,0 +1,8 @@
+# The Plasma Mobile quick setting runs as the session user and has to flip the
+# USB gadget, which is root-only. Scoped to this one binary; `fold3-mtp state`
+# needs no privileges and is not routed through sudo.
+#
+# Install to /etc/sudoers.d/fold3-mtp with mode 0440, and validate with
+# `visudo -c -f /etc/sudoers.d/fold3-mtp` -- a malformed file here breaks sudo
+# for everything.
+bunsenfold ALL=(root) NOPASSWD: /usr/local/bin/fold3-mtp

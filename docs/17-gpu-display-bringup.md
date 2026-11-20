@@ -205,7 +205,7 @@ Two details that mattered:
   rejected rather than done: the loader tries the plain name first for *every*
   request, so turning on xz support would let Fedora's `board-2.bin.xz` win
   over the bare `board.bin` staged for ath11k, silently changing WiFi
-  behaviour. One delta at a time.
+  behaviour.
 - **The zap shader must be Samsung's.** It is signed per device family and
   authenticated by TZ via `qcom_scm_pas_auth_and_reset()`; linux-firmware
   cannot ship one this TZ will accept. Setting `firmware-name` on the
@@ -382,12 +382,11 @@ chatter on every msm display.
 
 ## 5. Process notes
 
-**One delta per flash, adapted.** The rule exists because bundled changes cost
-wasted boots. Here the GPU and console changes shipped in one flash but only
-one was *active*: the GPU modules were staged outside `/lib/modules` so udev
-could not autoload them, leaving them inert until `insmod`. That preserved the
-diagnostic separation while saving the user a physical replug — each flash cycle
-costs a cable replug by hand, so they are not free.
+**Ship together, activate separately.** The GPU and console changes shipped in
+one flash but only one was *active*: the GPU modules were staged outside
+`/lib/modules` so udev could not autoload them, leaving them inert until
+`insmod`. That kept the two diagnostically separate without a second flash —
+each flash cycle costs a cable replug by hand, so they are not free.
 
 **Snapshot before a one-way door.** `golden/stage4-gpu-*` was taken before the
 display work specifically because removing simpledrm means a wrong panel init

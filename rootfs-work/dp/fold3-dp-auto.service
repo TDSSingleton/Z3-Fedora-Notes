@@ -1,0 +1,20 @@
+[Unit]
+Description=Bring up DisplayPort over USB-C when a dock is attached
+# Started by udev (70-fold3-dp-auto.rules) on a max77705-charger power_supply
+# CHANGE event, never enabled. Deliberately NOT WantedBy= anything and with no
+# After=graphical*: a unit that is both WantedBy=multi-user and ordered after
+# graphical.target gets silently deleted from the boot transaction as an
+# ordering cycle (HANDBOOK; we have been bitten).
+#
+# No dependency on the compositor either. The bring-up only writes sysfs, and
+# KWin picks the new output up on its own -- it made DP-1 the primary output
+# without being asked.
+DefaultDependencies=no
+After=local-fs.target
+Requires=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fold3-dp-auto
+# The bring-up waits for the sink's HPD, so it can legitimately take ~25 s.
+TimeoutStartSec=90

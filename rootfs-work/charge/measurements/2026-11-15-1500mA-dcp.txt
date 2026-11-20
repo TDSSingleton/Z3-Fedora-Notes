@@ -1,0 +1,2080 @@
+max77705 on i2c-7; limiters: main i2c-4, sub i2c-8
+[01:12:49]
+  input    VBYP 4.86 V   IIN 1472 mA   BC1.2 DCP
+  pack     4.225 V   +1196 mA   78%   27.3 C
+  main     in 4.215 V  cell 4.194 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.159 V  cell 4.144 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1196 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:12:54]
+  input    VBYP 4.87 V   IIN 1472 mA   BC1.2 DCP
+  pack     4.228 V   +1252 mA   78%   27.3 C
+  main     in 4.220 V  cell 4.200 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.188 V  cell 4.173 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1252 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:00]
+  input    VBYP 4.88 V   IIN 1481 mA   BC1.2 DCP
+  pack     4.229 V   +1311 mA   78%   27.3 C
+  main     in 4.228 V  cell 4.204 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.190 V  cell 4.176 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1311 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:05]
+  input    VBYP 4.86 V   IIN 1463 mA   BC1.2 DCP
+  pack     4.238 V   +1272 mA   78%   27.3 C
+  main     in 4.230 V  cell 4.207 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.196 V  cell 4.180 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1272 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:10]
+  input    VBYP 4.86 V   IIN 1457 mA   BC1.2 DCP
+  pack     4.240 V   +1300 mA   78%   27.3 C
+  main     in 4.213 V  cell 4.200 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.170 V  cell 4.157 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1300 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:15]
+  input    VBYP 4.86 V   IIN 1494 mA   BC1.2 DCP
+  pack     4.244 V   +1321 mA   78%   27.3 C
+  main     in 4.236 V  cell 4.215 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.199 V  cell 4.184 V   +570.3 mA (chg 570 / dis 0)  cap 900 mA
+  branches net +1123 mA (gauge says +1321 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:20]
+  input    VBYP 4.85 V   IIN 1482 mA   BC1.2 DCP
+  pack     4.242 V   +1260 mA   78%   27.3 C
+  main     in 4.237 V  cell 4.218 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.199 V  cell 4.186 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1260 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:25]
+  input    VBYP 4.89 V   IIN 1481 mA   BC1.2 DCP
+  pack     4.248 V   +1292 mA   78%   27.3 C
+  main     in 4.241 V  cell 4.219 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.206 V  cell 4.190 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1292 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:30]
+  input    VBYP 4.87 V   IIN 1474 mA   BC1.2 DCP
+  pack     4.252 V   +1288 mA   78%   27.3 C
+  main     in 4.244 V  cell 4.221 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.207 V  cell 4.191 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1288 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:35]
+  input    VBYP 4.87 V   IIN 1462 mA   BC1.2 DCP
+  pack     4.253 V   +1281 mA   78%   27.3 C
+  main     in 4.246 V  cell 4.224 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.210 V  cell 4.194 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1281 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:40]
+  input    VBYP 4.87 V   IIN 1472 mA   BC1.2 DCP
+  pack     4.256 V   +1310 mA   78%   27.3 C
+  main     in 4.249 V  cell 4.224 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.211 V  cell 4.195 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1310 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:45]
+  input    VBYP 4.87 V   IIN 1471 mA   BC1.2 DCP
+  pack     4.256 V   +1283 mA   78%   27.3 C
+  main     in 4.247 V  cell 4.224 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.213 V  cell 4.197 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1283 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:50]
+  input    VBYP 4.87 V   IIN 1486 mA   BC1.2 DCP
+  pack     4.256 V   +1316 mA   78%   27.3 C
+  main     in 4.253 V  cell 4.229 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.215 V  cell 4.199 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1316 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:13:56]
+  input    VBYP 4.87 V   IIN 1487 mA   BC1.2 DCP
+  pack     4.257 V   +1309 mA   78%   27.3 C
+  main     in 4.253 V  cell 4.231 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.214 V  cell 4.199 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1309 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:01]
+  input    VBYP 4.87 V   IIN 1463 mA   BC1.2 DCP
+  pack     4.258 V   +1311 mA   78%   27.3 C
+  main     in 4.253 V  cell 4.231 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.219 V  cell 4.201 V   +581.2 mA (chg 581 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1311 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:06]
+  input    VBYP 4.85 V   IIN 1488 mA   BC1.2 DCP
+  pack     4.260 V   +1266 mA   78%   27.3 C
+  main     in 4.255 V  cell 4.232 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.218 V  cell 4.202 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1266 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:11]
+  input    VBYP 4.85 V   IIN 1484 mA   BC1.2 DCP
+  pack     4.262 V   +1284 mA   78%   27.3 C
+  main     in 4.241 V  cell 4.226 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.220 V  cell 4.204 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1284 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:16]
+  input    VBYP 4.87 V   IIN 1477 mA   BC1.2 DCP
+  pack     4.263 V   +1277 mA   78%   27.3 C
+  main     in 4.258 V  cell 4.236 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.220 V  cell 4.205 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1277 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:21]
+  input    VBYP 4.87 V   IIN 1471 mA   BC1.2 DCP
+  pack     4.264 V   +1302 mA   78%   27.3 C
+  main     in 4.260 V  cell 4.236 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.223 V  cell 4.207 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1302 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:26]
+  input    VBYP 4.86 V   IIN 1464 mA   BC1.2 DCP
+  pack     4.265 V   +1283 mA   78%   27.3 C
+  main     in 4.255 V  cell 4.236 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.223 V  cell 4.207 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1283 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:31]
+  input    VBYP 4.86 V   IIN 1452 mA   BC1.2 DCP
+  pack     4.265 V   +1299 mA   79%   27.3 C
+  main     in 4.261 V  cell 4.240 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.225 V  cell 4.207 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1299 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:36]
+  input    VBYP 4.87 V   IIN 1481 mA   BC1.2 DCP
+  pack     4.265 V   +1277 mA   79%   27.3 C
+  main     in 4.260 V  cell 4.240 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.225 V  cell 4.209 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1277 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:41]
+  input    VBYP 4.86 V   IIN 1481 mA   BC1.2 DCP
+  pack     4.270 V   +1280 mA   79%   27.3 C
+  main     in 4.261 V  cell 4.240 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.226 V  cell 4.211 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1280 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:46]
+  input    VBYP 4.87 V   IIN 1459 mA   BC1.2 DCP
+  pack     4.271 V   +1301 mA   79%   27.3 C
+  main     in 4.263 V  cell 4.242 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.228 V  cell 4.213 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1301 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:52]
+  input    VBYP 4.87 V   IIN 1488 mA   BC1.2 DCP
+  pack     4.267 V   +1295 mA   79%   27.3 C
+  main     in 4.264 V  cell 4.242 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.225 V  cell 4.209 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1295 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:14:57]
+  input    VBYP 4.86 V   IIN 1471 mA   BC1.2 DCP
+  pack     4.271 V   +1299 mA   79%   27.3 C
+  main     in 4.266 V  cell 4.244 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.223 V  cell 4.207 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1299 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:02]
+  input    VBYP 4.88 V   IIN 1464 mA   BC1.2 DCP
+  pack     4.273 V   +1267 mA   79%   27.3 C
+  main     in 4.265 V  cell 4.244 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.228 V  cell 4.214 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1267 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:07]
+  input    VBYP 4.87 V   IIN 1451 mA   BC1.2 DCP
+  pack     4.273 V   +1306 mA   79%   27.3 C
+  main     in 4.254 V  cell 4.240 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.231 V  cell 4.215 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1306 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:12]
+  input    VBYP 4.85 V   IIN 1458 mA   BC1.2 DCP
+  pack     4.273 V   +1259 mA   79%   27.3 C
+  main     in 4.259 V  cell 4.245 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.232 V  cell 4.214 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1136 mA (gauge says +1259 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:17]
+  input    VBYP 4.87 V   IIN 1470 mA   BC1.2 DCP
+  pack     4.258 V   +1141 mA   79%   27.3 C
+  main     in 4.269 V  cell 4.246 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.232 V  cell 4.218 V   +564.1 mA (chg 564 / dis 0)  cap 900 mA
+  branches net +1117 mA (gauge says +1141 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:22]
+  input    VBYP 4.86 V   IIN 1467 mA   BC1.2 DCP
+  pack     4.276 V   +1283 mA   79%   27.3 C
+  main     in 4.270 V  cell 4.247 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.234 V  cell 4.218 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1283 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:27]
+  input    VBYP 4.86 V   IIN 1492 mA   BC1.2 DCP
+  pack     4.277 V   +1298 mA   79%   27.3 C
+  main     in 4.270 V  cell 4.250 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  sub      in 4.230 V  cell 4.219 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1139 mA (gauge says +1298 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:32]
+  input    VBYP 4.86 V   IIN 1453 mA   BC1.2 DCP
+  pack     4.273 V   +1294 mA   79%   27.3 C
+  main     in 4.265 V  cell 4.247 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.235 V  cell 4.219 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1294 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:37]
+  input    VBYP 4.86 V   IIN 1485 mA   BC1.2 DCP
+  pack     4.276 V   +1265 mA   79%   27.3 C
+  main     in 4.271 V  cell 4.250 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.236 V  cell 4.220 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1265 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:42]
+  input    VBYP 4.86 V   IIN 1460 mA   BC1.2 DCP
+  pack     4.277 V   +1298 mA   79%   27.3 C
+  main     in 4.271 V  cell 4.253 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.236 V  cell 4.220 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1298 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:48]
+  input    VBYP 4.86 V   IIN 1457 mA   BC1.2 DCP
+  pack     4.123 V     -68 mA   79%   27.3 C
+  main     in 4.169 V  cell 4.162 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  sub      in 4.185 V  cell 4.175 V    -34.4 mA (chg 0 / dis 34)  cap 900 mA
+  branches net +525 mA (gauge says -68 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:53]
+  input    VBYP 4.87 V   IIN 1495 mA   BC1.2 DCP
+  pack     4.275 V   +1304 mA   79%   27.3 C
+  main     in 4.268 V  cell 4.246 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.200 V  cell 4.185 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1304 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:15:58]
+  input    VBYP 4.87 V   IIN 1484 mA   BC1.2 DCP
+  pack     4.277 V   +1287 mA   79%   27.3 C
+  main     in 4.269 V  cell 4.247 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.235 V  cell 4.219 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1287 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:03]
+  input    VBYP 4.88 V   IIN 1464 mA   BC1.2 DCP
+  pack     4.276 V   +1256 mA   79%   27.3 C
+  main     in 4.270 V  cell 4.253 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.230 V  cell 4.218 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1256 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:08]
+  input    VBYP 4.87 V   IIN 1460 mA   BC1.2 DCP
+  pack     4.275 V   +1270 mA   79%   27.3 C
+  main     in 4.272 V  cell 4.251 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.230 V  cell 4.211 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1270 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:13]
+  input    VBYP 4.87 V   IIN 1453 mA   BC1.2 DCP
+  pack     4.277 V   +1245 mA   79%   27.3 C
+  main     in 4.270 V  cell 4.253 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.239 V  cell 4.221 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1245 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:18]
+  input    VBYP 4.88 V   IIN 1478 mA   BC1.2 DCP
+  pack     4.280 V   +1261 mA   79%   27.3 C
+  main     in 4.270 V  cell 4.253 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.225 V  cell 4.214 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1261 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:23]
+  input    VBYP 4.86 V   IIN 1461 mA   BC1.2 DCP
+  pack     4.282 V   +1255 mA   80%   27.3 C
+  main     in 4.275 V  cell 4.256 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.241 V  cell 4.224 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1255 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:28]
+  input    VBYP 4.87 V   IIN 1461 mA   BC1.2 DCP
+  pack     4.279 V   +1246 mA   80%   27.3 C
+  main     in 4.274 V  cell 4.256 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.239 V  cell 4.223 V   +542.2 mA (chg 542 / dis 0)  cap 900 mA
+  branches net +1098 mA (gauge says +1246 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:33]
+  input    VBYP 4.87 V   IIN 1456 mA   BC1.2 DCP
+  pack     4.281 V   +1274 mA   80%   27.3 C
+  main     in 4.275 V  cell 4.256 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.242 V  cell 4.225 V   +564.1 mA (chg 564 / dis 0)  cap 900 mA
+  branches net +1116 mA (gauge says +1274 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:38]
+  input    VBYP 4.86 V   IIN 1490 mA   BC1.2 DCP
+  pack     4.285 V   +1268 mA   80%   27.3 C
+  main     in 4.272 V  cell 4.256 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.240 V  cell 4.225 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1268 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:43]
+  input    VBYP 4.87 V   IIN 1477 mA   BC1.2 DCP
+  pack     4.310 V   +1438 mA   80%   27.3 C
+  main     in 4.280 V  cell 4.259 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.242 V  cell 4.226 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1438 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:48]
+  input    VBYP 4.86 V   IIN 1461 mA   BC1.2 DCP
+  pack     4.322 V   +1414 mA   80%   27.3 C
+  main     in 4.315 V  cell 4.275 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.275 V  cell 4.244 V   +573.4 mA (chg 573 / dis 0)  cap 900 mA
+  branches net +1125 mA (gauge says +1414 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:53]
+  input    VBYP 4.87 V   IIN 1484 mA   BC1.2 DCP
+  pack     4.322 V   +1472 mA   80%   27.3 C
+  main     in 4.315 V  cell 4.276 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.277 V  cell 4.247 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1125 mA (gauge says +1472 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:16:58]
+  input    VBYP 4.86 V   IIN 1469 mA   BC1.2 DCP
+  pack     4.321 V   +1460 mA   80%   27.3 C
+  main     in 4.314 V  cell 4.277 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.279 V  cell 4.249 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1460 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:04]
+  input    VBYP 4.87 V   IIN 1472 mA   BC1.2 DCP
+  pack     4.323 V   +1438 mA   80%   27.3 C
+  main     in 4.310 V  cell 4.276 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.279 V  cell 4.249 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1438 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:09]
+  input    VBYP 4.88 V   IIN 1465 mA   BC1.2 DCP
+  pack     4.326 V   +1457 mA   80%   27.3 C
+  main     in 4.315 V  cell 4.279 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.279 V  cell 4.250 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1457 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:14]
+  input    VBYP 4.87 V   IIN 1468 mA   BC1.2 DCP
+  pack     4.327 V   +1480 mA   80%   27.3 C
+  main     in 4.320 V  cell 4.281 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.279 V  cell 4.253 V   +573.4 mA (chg 573 / dis 0)  cap 900 mA
+  branches net +1123 mA (gauge says +1480 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:19]
+  input    VBYP 4.85 V   IIN 1461 mA   BC1.2 DCP
+  pack     4.302 V   +1362 mA   80%   27.3 C
+  main     in 4.285 V  cell 4.265 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.282 V  cell 4.253 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1362 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:24]
+  input    VBYP 4.87 V   IIN 1476 mA   BC1.2 DCP
+  pack     4.330 V   +1444 mA   80%   27.3 C
+  main     in 4.324 V  cell 4.282 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.284 V  cell 4.254 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1444 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:29]
+  input    VBYP 4.86 V   IIN 1467 mA   BC1.2 DCP
+  pack     4.332 V   +1465 mA   80%   27.3 C
+  main     in 4.324 V  cell 4.285 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.281 V  cell 4.253 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1125 mA (gauge says +1465 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:34]
+  input    VBYP 4.87 V   IIN 1474 mA   BC1.2 DCP
+  pack     4.331 V   +1452 mA   80%   27.3 C
+  main     in 4.322 V  cell 4.285 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.270 V  cell 4.251 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1452 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:39]
+  input    VBYP 4.86 V   IIN 1477 mA   BC1.2 DCP
+  pack     4.332 V   +1460 mA   80%   27.3 C
+  main     in 4.326 V  cell 4.286 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.287 V  cell 4.258 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1460 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:44]
+  input    VBYP 4.87 V   IIN 1477 mA   BC1.2 DCP
+  pack     4.334 V   +1456 mA   80%   27.3 C
+  main     in 4.325 V  cell 4.287 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.287 V  cell 4.259 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1456 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:49]
+  input    VBYP 4.87 V   IIN 1459 mA   BC1.2 DCP
+  pack     4.324 V   +1451 mA   80%   27.3 C
+  main     in 4.326 V  cell 4.287 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.287 V  cell 4.259 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1451 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:54]
+  input    VBYP 4.86 V   IIN 1445 mA   BC1.2 DCP
+  pack     4.335 V   +1464 mA   80%   27.3 C
+  main     in 4.329 V  cell 4.289 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.289 V  cell 4.260 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1464 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:17:59]
+  input    VBYP 4.86 V   IIN 1468 mA   BC1.2 DCP
+  pack     4.335 V   +1462 mA   81%   27.3 C
+  main     in 4.329 V  cell 4.289 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.290 V  cell 4.260 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1462 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:05]
+  input    VBYP 4.87 V   IIN 1487 mA   BC1.2 DCP
+  pack     4.336 V   +1449 mA   81%   27.3 C
+  main     in 4.327 V  cell 4.291 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.287 V  cell 4.261 V   +573.4 mA (chg 573 / dis 0)  cap 900 mA
+  branches net +1125 mA (gauge says +1449 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:10]
+  input    VBYP 4.85 V   IIN 1495 mA   BC1.2 DCP
+  pack     4.335 V   +1414 mA   81%   27.3 C
+  main     in 4.331 V  cell 4.290 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.291 V  cell 4.263 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1414 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:15]
+  input    VBYP 4.86 V   IIN 1479 mA   BC1.2 DCP
+  pack     4.337 V   +1452 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.293 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.289 V  cell 4.261 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1452 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:20]
+  input    VBYP 4.86 V   IIN 1450 mA   BC1.2 DCP
+  pack     4.337 V   +1473 mA   81%   27.3 C
+  main     in 4.331 V  cell 4.293 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.293 V  cell 4.264 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1473 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:25]
+  input    VBYP 4.87 V   IIN 1446 mA   BC1.2 DCP
+  pack     4.338 V   +1443 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.293 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.293 V  cell 4.264 V   +573.4 mA (chg 573 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1443 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:30]
+  input    VBYP 4.88 V   IIN 1446 mA   BC1.2 DCP
+  pack     4.338 V   +1441 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.293 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.293 V  cell 4.264 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1441 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:35]
+  input    VBYP 4.87 V   IIN 1479 mA   BC1.2 DCP
+  pack     4.338 V   +1453 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.295 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.291 V  cell 4.265 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1453 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:40]
+  input    VBYP 4.86 V   IIN 1471 mA   BC1.2 DCP
+  pack     4.335 V   +1452 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.294 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.293 V  cell 4.266 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1125 mA (gauge says +1452 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:45]
+  input    VBYP 4.87 V   IIN 1462 mA   BC1.2 DCP
+  pack     4.336 V   +1424 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.295 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.293 V  cell 4.266 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1424 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:50]
+  input    VBYP 4.87 V   IIN 1448 mA   BC1.2 DCP
+  pack     4.337 V   +1450 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.295 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.293 V  cell 4.268 V   +573.4 mA (chg 573 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1450 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:18:55]
+  input    VBYP 4.86 V   IIN 1485 mA   BC1.2 DCP
+  pack     4.338 V   +1432 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.295 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.293 V  cell 4.268 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1432 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:01]
+  input    VBYP 4.88 V   IIN 1446 mA   BC1.2 DCP
+  pack     4.336 V   +1412 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.296 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.293 V  cell 4.268 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1412 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:06]
+  input    VBYP 4.88 V   IIN 1446 mA   BC1.2 DCP
+  pack     4.336 V   +1400 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.296 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.291 V  cell 4.269 V   +573.4 mA (chg 573 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1400 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:11]
+  input    VBYP 4.88 V   IIN 1444 mA   BC1.2 DCP
+  pack     4.336 V   +1436 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.298 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.280 V  cell 4.264 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1125 mA (gauge says +1436 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:16]
+  input    VBYP 4.86 V   IIN 1419 mA   BC1.2 DCP
+  pack     4.338 V   +1418 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.298 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.269 V   +573.4 mA (chg 573 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1418 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:21]
+  input    VBYP 4.88 V   IIN 1414 mA   BC1.2 DCP
+  pack     4.337 V   +1396 mA   81%   27.3 C
+  main     in 4.331 V  cell 4.298 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.293 V  cell 4.270 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1396 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:26]
+  input    VBYP 4.88 V   IIN 1406 mA   BC1.2 DCP
+  pack     4.337 V   +1407 mA   81%   27.3 C
+  main     in 4.330 V  cell 4.299 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.293 V  cell 4.270 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1407 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:31]
+  input    VBYP 4.89 V   IIN 1405 mA   BC1.2 DCP
+  pack     4.338 V   +1406 mA   82%   27.3 C
+  main     in 4.331 V  cell 4.299 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.270 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1406 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:36]
+  input    VBYP 4.89 V   IIN 1439 mA   BC1.2 DCP
+  pack     4.339 V   +1415 mA   82%   27.3 C
+  main     in 4.330 V  cell 4.300 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.271 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1415 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:41]
+  input    VBYP 4.89 V   IIN 1414 mA   BC1.2 DCP
+  pack     4.336 V   +1402 mA   82%   27.3 C
+  main     in 4.330 V  cell 4.300 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.271 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1402 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:46]
+  input    VBYP 4.89 V   IIN 1427 mA   BC1.2 DCP
+  pack     4.338 V   +1407 mA   82%   27.3 C
+  main     in 4.331 V  cell 4.300 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.271 V   +573.4 mA (chg 573 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1407 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:51]
+  input    VBYP 4.90 V   IIN 1383 mA   BC1.2 DCP
+  pack     4.338 V   +1390 mA   82%   27.3 C
+  main     in 4.330 V  cell 4.300 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.272 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1390 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:19:56]
+  input    VBYP 4.88 V   IIN 1388 mA   BC1.2 DCP
+  pack     4.337 V   +1399 mA   82%   27.3 C
+  main     in 4.330 V  cell 4.301 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.274 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1399 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:02]
+  input    VBYP 4.87 V   IIN 1377 mA   BC1.2 DCP
+  pack     4.336 V   +1376 mA   82%   27.3 C
+  main     in 4.330 V  cell 4.300 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.272 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1376 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:07]
+  input    VBYP 4.88 V   IIN 1398 mA   BC1.2 DCP
+  pack     4.338 V   +1398 mA   82%   27.3 C
+  main     in 4.331 V  cell 4.303 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.274 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1398 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:12]
+  input    VBYP 4.88 V   IIN 1390 mA   BC1.2 DCP
+  pack     4.338 V   +1405 mA   82%   27.3 C
+  main     in 4.331 V  cell 4.303 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.295 V  cell 4.275 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1405 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:17]
+  input    VBYP 4.91 V   IIN 1378 mA   BC1.2 DCP
+  pack     4.337 V   +1368 mA   82%   27.3 C
+  main     in 4.331 V  cell 4.303 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.274 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1368 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:22]
+  input    VBYP 4.87 V   IIN 1375 mA   BC1.2 DCP
+  pack     4.337 V   +1380 mA   82%   27.3 C
+  main     in 4.331 V  cell 4.303 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.275 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1380 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:27]
+  input    VBYP 4.90 V   IIN 1418 mA   BC1.2 DCP
+  pack     4.337 V   +1378 mA   82%   27.3 C
+  main     in 4.330 V  cell 4.304 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.294 V  cell 4.275 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1378 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:32]
+  input    VBYP 4.90 V   IIN 1383 mA   BC1.2 DCP
+  pack     4.336 V   +1374 mA   82%   27.3 C
+  main     in 4.331 V  cell 4.304 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.295 V  cell 4.276 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1374 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:37]
+  input    VBYP 4.86 V   IIN 1483 mA   BC1.2 DCP
+  pack     4.334 V   +1324 mA   82%   27.3 C
+  main     in 4.331 V  cell 4.304 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.295 V  cell 4.276 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1324 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:42]
+  input    VBYP 4.90 V   IIN 1363 mA   BC1.2 DCP
+  pack     4.338 V   +1348 mA   82%   27.3 C
+  main     in 4.330 V  cell 4.304 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.295 V  cell 4.276 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1348 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:47]
+  input    VBYP 4.90 V   IIN 1358 mA   BC1.2 DCP
+  pack     4.337 V   +1346 mA   82%   27.3 C
+  main     in 4.331 V  cell 4.305 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.295 V  cell 4.276 V   +573.4 mA (chg 573 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1346 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:52]
+  input    VBYP 4.89 V   IIN 1351 mA   BC1.2 DCP
+  pack     4.335 V   +1361 mA   82%   27.3 C
+  main     in 4.330 V  cell 4.305 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.277 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1361 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:20:57]
+  input    VBYP 4.91 V   IIN 1368 mA   BC1.2 DCP
+  pack     4.336 V   +1369 mA   82%   27.3 C
+  main     in 4.331 V  cell 4.306 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.277 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1369 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:02]
+  input    VBYP 4.89 V   IIN 1364 mA   BC1.2 DCP
+  pack     4.336 V   +1360 mA   82%   27.3 C
+  main     in 4.330 V  cell 4.305 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.277 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1360 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:08]
+  input    VBYP 4.90 V   IIN 1360 mA   BC1.2 DCP
+  pack     4.338 V   +1318 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.306 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.295 V  cell 4.277 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1318 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:13]
+  input    VBYP 4.91 V   IIN 1337 mA   BC1.2 DCP
+  pack     4.336 V   +1358 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.306 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.277 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1358 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:18]
+  input    VBYP 4.89 V   IIN 1337 mA   BC1.2 DCP
+  pack     4.337 V   +1349 mA   83%   27.3 C
+  main     in 4.330 V  cell 4.306 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.279 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1349 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:23]
+  input    VBYP 4.89 V   IIN 1384 mA   BC1.2 DCP
+  pack     4.338 V   +1307 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.306 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.295 V  cell 4.279 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1307 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:28]
+  input    VBYP 4.89 V   IIN 1329 mA   BC1.2 DCP
+  pack     4.336 V   +1328 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.308 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.279 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1328 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:33]
+  input    VBYP 4.89 V   IIN 1351 mA   BC1.2 DCP
+  pack     4.337 V   +1300 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.308 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.279 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1300 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:38]
+  input    VBYP 4.87 V   IIN 1406 mA   BC1.2 DCP
+  pack     4.336 V   +1323 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.308 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.280 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1323 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:43]
+  input    VBYP 4.91 V   IIN 1303 mA   BC1.2 DCP
+  pack     4.337 V   +1318 mA   83%   27.3 C
+  main     in 4.330 V  cell 4.308 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.280 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1318 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:48]
+  input    VBYP 4.90 V   IIN 1328 mA   BC1.2 DCP
+  pack     4.337 V   +1318 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.309 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.280 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1318 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:53]
+  input    VBYP 4.89 V   IIN 1394 mA   BC1.2 DCP
+  pack     4.337 V   +1332 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.309 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.281 V   +560.9 mA (chg 561 / dis 0)  cap 900 mA
+  branches net +1116 mA (gauge says +1332 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:21:58]
+  input    VBYP 4.92 V   IIN 1323 mA   BC1.2 DCP
+  pack     4.338 V   +1301 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.310 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.281 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1301 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:03]
+  input    VBYP 4.91 V   IIN 1299 mA   BC1.2 DCP
+  pack     4.335 V   +1298 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.310 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.296 V  cell 4.281 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1134 mA (gauge says +1298 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:08]
+  input    VBYP 4.91 V   IIN 1305 mA   BC1.2 DCP
+  pack     4.337 V   +1296 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.310 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.281 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1296 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:13]
+  input    VBYP 4.92 V   IIN 1309 mA   BC1.2 DCP
+  pack     4.336 V   +1278 mA   83%   27.3 C
+  main     in 4.330 V  cell 4.309 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.281 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1278 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:19]
+  input    VBYP 4.89 V   IIN 1427 mA   BC1.2 DCP
+  pack     4.336 V   +1268 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.310 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.281 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1268 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:24]
+  input    VBYP 4.91 V   IIN 1294 mA   BC1.2 DCP
+  pack     4.338 V   +1286 mA   83%   27.3 C
+  main     in 4.330 V  cell 4.310 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.282 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1286 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:29]
+  input    VBYP 4.90 V   IIN 1287 mA   BC1.2 DCP
+  pack     4.337 V   +1278 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.310 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.282 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1278 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:34]
+  input    VBYP 4.94 V   IIN 1272 mA   BC1.2 DCP
+  pack     4.338 V   +1288 mA   83%   27.3 C
+  main     in 4.330 V  cell 4.310 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.282 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1288 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:39]
+  input    VBYP 4.93 V   IIN 1299 mA   BC1.2 DCP
+  pack     4.337 V   +1305 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.311 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.284 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1305 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:44]
+  input    VBYP 4.93 V   IIN 1290 mA   BC1.2 DCP
+  pack     4.338 V   +1283 mA   83%   27.3 C
+  main     in 4.330 V  cell 4.311 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.284 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1283 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:49]
+  input    VBYP 4.93 V   IIN 1284 mA   BC1.2 DCP
+  pack     4.335 V   +1257 mA   83%   27.3 C
+  main     in 4.331 V  cell 4.310 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.284 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1257 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:54]
+  input    VBYP 4.90 V   IIN 1347 mA   BC1.2 DCP
+  pack     4.337 V   +1268 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.311 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.282 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1134 mA (gauge says +1268 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:22:59]
+  input    VBYP 4.93 V   IIN 1289 mA   BC1.2 DCP
+  pack     4.337 V   +1269 mA   84%   27.3 C
+  main     in 4.331 V  cell 4.311 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.284 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1269 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:04]
+  input    VBYP 4.93 V   IIN 1260 mA   BC1.2 DCP
+  pack     4.337 V   +1248 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.312 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.284 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1248 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:09]
+  input    VBYP 4.94 V   IIN 1267 mA   BC1.2 DCP
+  pack     4.337 V   +1248 mA   84%   27.3 C
+  main     in 4.331 V  cell 4.312 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.284 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1248 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:14]
+  input    VBYP 4.93 V   IIN 1258 mA   BC1.2 DCP
+  pack     4.338 V   +1267 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.312 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.285 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1267 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:19]
+  input    VBYP 4.92 V   IIN 1261 mA   BC1.2 DCP
+  pack     4.338 V   +1243 mA   84%   27.3 C
+  main     in 4.331 V  cell 4.312 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.298 V  cell 4.285 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1243 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:24]
+  input    VBYP 4.93 V   IIN 1265 mA   BC1.2 DCP
+  pack     4.337 V   +1248 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.312 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.285 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1130 mA (gauge says +1248 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:30]
+  input    VBYP 4.93 V   IIN 1247 mA   BC1.2 DCP
+  pack     4.339 V   +1231 mA   84%   27.3 C
+  main     in 4.331 V  cell 4.314 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.284 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1231 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:35]
+  input    VBYP 4.94 V   IIN 1238 mA   BC1.2 DCP
+  pack     4.339 V   +1246 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.314 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.285 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1134 mA (gauge says +1246 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:40]
+  input    VBYP 4.92 V   IIN 1260 mA   BC1.2 DCP
+  pack     4.337 V   +1238 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.314 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.285 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1238 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:45]
+  input    VBYP 4.94 V   IIN 1240 mA   BC1.2 DCP
+  pack     4.339 V   +1209 mA   84%   27.3 C
+  main     in 4.331 V  cell 4.315 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.286 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1209 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:50]
+  input    VBYP 4.95 V   IIN 1263 mA   BC1.2 DCP
+  pack     4.338 V   +1238 mA   84%   27.3 C
+  main     in 4.331 V  cell 4.314 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.286 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1238 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:23:55]
+  input    VBYP 4.94 V   IIN 1213 mA   BC1.2 DCP
+  pack     4.338 V   +1214 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.314 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.287 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1136 mA (gauge says +1214 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:00]
+  input    VBYP 4.94 V   IIN 1217 mA   BC1.2 DCP
+  pack     4.338 V   +1220 mA   84%   27.3 C
+  main     in 4.331 V  cell 4.314 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.286 V   +581.2 mA (chg 581 / dis 0)  cap 900 mA
+  branches net +1139 mA (gauge says +1220 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:05]
+  input    VBYP 4.92 V   IIN 1211 mA   BC1.2 DCP
+  pack     4.339 V   +1227 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.314 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.286 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1227 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:10]
+  input    VBYP 4.95 V   IIN 1224 mA   BC1.2 DCP
+  pack     4.338 V   +1208 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.315 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.286 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1128 mA (gauge says +1208 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:15]
+  input    VBYP 4.92 V   IIN 1201 mA   BC1.2 DCP
+  pack     4.336 V   +1210 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.314 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.287 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1134 mA (gauge says +1210 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:20]
+  input    VBYP 4.97 V   IIN 1210 mA   BC1.2 DCP
+  pack     4.338 V   +1219 mA   84%   27.3 C
+  main     in 4.331 V  cell 4.315 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.299 V  cell 4.287 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1219 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:25]
+  input    VBYP 4.96 V   IIN 1235 mA   BC1.2 DCP
+  pack     4.336 V   +1199 mA   84%   27.3 C
+  main     in 4.331 V  cell 4.315 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.287 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1199 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:30]
+  input    VBYP 4.94 V   IIN 1198 mA   BC1.2 DCP
+  pack     4.338 V   +1219 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.315 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.287 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1138 mA (gauge says +1219 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:36]
+  input    VBYP 4.94 V   IIN 1218 mA   BC1.2 DCP
+  pack     4.338 V   +1198 mA   84%   27.3 C
+  main     in 4.330 V  cell 4.315 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.287 V   +581.2 mA (chg 581 / dis 0)  cap 900 mA
+  branches net +1138 mA (gauge says +1198 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:41]
+  input    VBYP 4.95 V   IIN 1183 mA   BC1.2 DCP
+  pack     4.339 V   +1198 mA   85%   27.3 C
+  main     in 4.330 V  cell 4.316 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.287 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1198 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:46]
+  input    VBYP 4.95 V   IIN 1177 mA   BC1.2 DCP
+  pack     4.337 V   +1191 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.316 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.287 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1138 mA (gauge says +1191 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:51]
+  input    VBYP 4.95 V   IIN 1179 mA   BC1.2 DCP
+  pack     4.338 V   +1168 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.316 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.289 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1138 mA (gauge says +1168 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:24:56]
+  input    VBYP 4.95 V   IIN 1198 mA   BC1.2 DCP
+  pack     4.335 V   +1178 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.316 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.289 V   +581.2 mA (chg 581 / dis 0)  cap 900 mA
+  branches net +1141 mA (gauge says +1178 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:01]
+  input    VBYP 4.95 V   IIN 1197 mA   BC1.2 DCP
+  pack     4.338 V   +1202 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.316 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.289 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1134 mA (gauge says +1202 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:06]
+  input    VBYP 4.95 V   IIN 1176 mA   BC1.2 DCP
+  pack     4.337 V   +1175 mA   85%   27.3 C
+  main     in 4.330 V  cell 4.317 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.289 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1134 mA (gauge says +1175 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:11]
+  input    VBYP 4.90 V   IIN 1337 mA   BC1.2 DCP
+  pack     4.338 V   +1195 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.316 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.289 V   +584.4 mA (chg 584 / dis 0)  cap 900 mA
+  branches net +1141 mA (gauge says +1195 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:16]
+  input    VBYP 4.92 V   IIN 1326 mA   BC1.2 DCP
+  pack     4.337 V   +1171 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.317 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  sub      in 4.301 V  cell 4.289 V   +571.9 mA (chg 572 / dis 0)  cap 900 mA
+  branches net +1123 mA (gauge says +1171 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:21]
+  input    VBYP 4.92 V   IIN 1305 mA   BC1.2 DCP
+  pack     4.334 V   +1159 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.317 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  sub      in 4.301 V  cell 4.290 V   +581.2 mA (chg 581 / dis 0)  cap 900 mA
+  branches net +1141 mA (gauge says +1159 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:26]
+  input    VBYP 4.87 V   IIN 1440 mA   BC1.2 DCP
+  pack     4.339 V   +1168 mA   85%   27.3 C
+  main     in 4.330 V  cell 4.316 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.289 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1136 mA (gauge says +1168 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:31]
+  input    VBYP 4.95 V   IIN 1165 mA   BC1.2 DCP
+  pack     4.339 V   +1162 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.317 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.300 V  cell 4.290 V   +581.2 mA (chg 581 / dis 0)  cap 900 mA
+  branches net +1139 mA (gauge says +1162 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:37]
+  input    VBYP 4.94 V   IIN 1160 mA   BC1.2 DCP
+  pack     4.336 V   +1161 mA   85%   27.3 C
+  main     in 4.332 V  cell 4.317 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.301 V  cell 4.290 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1161 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:42]
+  input    VBYP 4.93 V   IIN 1151 mA   BC1.2 DCP
+  pack     4.337 V   +1169 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.317 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.301 V  cell 4.290 V   +582.8 mA (chg 583 / dis 0)  cap 900 mA
+  branches net +1138 mA (gauge says +1169 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:47]
+  input    VBYP 4.96 V   IIN 1141 mA   BC1.2 DCP
+  pack     4.338 V   +1151 mA   85%   27.3 C
+  main     in 4.330 V  cell 4.317 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.301 V  cell 4.290 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1138 mA (gauge says +1151 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:52]
+  input    VBYP 4.96 V   IIN 1139 mA   BC1.2 DCP
+  pack     4.337 V   +1156 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.317 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.301 V  cell 4.290 V   +581.2 mA (chg 581 / dis 0)  cap 900 mA
+  branches net +1139 mA (gauge says +1156 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:25:57]
+  input    VBYP 4.95 V   IIN 1128 mA   BC1.2 DCP
+  pack     4.336 V   +1140 mA   85%   27.3 C
+  main     in 4.330 V  cell 4.319 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.290 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1134 mA (gauge says +1140 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:02]
+  input    VBYP 4.97 V   IIN 1153 mA   BC1.2 DCP
+  pack     4.336 V   +1131 mA   85%   27.3 C
+  main     in 4.330 V  cell 4.319 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.290 V   +579.7 mA (chg 580 / dis 0)  cap 900 mA
+  branches net +1139 mA (gauge says +1131 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:07]
+  input    VBYP 4.97 V   IIN 1138 mA   BC1.2 DCP
+  pack     4.338 V   +1132 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.319 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.301 V  cell 4.290 V   +584.4 mA (chg 584 / dis 0)  cap 900 mA
+  branches net +1138 mA (gauge says +1132 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:12]
+  input    VBYP 4.96 V   IIN 1157 mA   BC1.2 DCP
+  pack     4.337 V   +1136 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.319 V   +562.5 mA (chg 562 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.290 V   +581.2 mA (chg 581 / dis 0)  cap 900 mA
+  branches net +1144 mA (gauge says +1136 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:17]
+  input    VBYP 4.97 V   IIN 1117 mA   BC1.2 DCP
+  pack     4.337 V   +1133 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.319 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.291 V   +576.6 mA (chg 577 / dis 0)  cap 900 mA
+  branches net +1134 mA (gauge says +1133 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:22]
+  input    VBYP 4.96 V   IIN 1142 mA   BC1.2 DCP
+  pack     4.338 V   +1123 mA   85%   27.3 C
+  main     in 4.330 V  cell 4.319 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.291 V   +578.1 mA (chg 578 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1123 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:27]
+  input    VBYP 4.98 V   IIN 1129 mA   BC1.2 DCP
+  pack     4.338 V   +1110 mA   85%   27.3 C
+  main     in 4.331 V  cell 4.319 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  sub      in 4.301 V  cell 4.291 V   +573.4 mA (chg 573 / dis 0)  cap 900 mA
+  branches net +1133 mA (gauge says +1110 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:32]
+  input    VBYP 4.96 V   IIN 1143 mA   BC1.2 DCP
+  pack     4.337 V   +1131 mA   85%   27.3 C
+  main     in 4.330 V  cell 4.320 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.291 V   +575.0 mA (chg 575 / dis 0)  cap 900 mA
+  branches net +1134 mA (gauge says +1131 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:38]
+  input    VBYP 4.94 V   IIN 1144 mA   BC1.2 DCP
+  pack     4.337 V   +1123 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +560.9 mA (chg 561 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.291 V   +570.3 mA (chg 570 / dis 0)  cap 900 mA
+  branches net +1131 mA (gauge says +1123 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:43]
+  input    VBYP 4.97 V   IIN 1121 mA   BC1.2 DCP
+  pack     4.336 V   +1127 mA   86%   27.3 C
+  main     in 4.330 V  cell 4.319 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.293 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  branches net +1112 mA (gauge says +1127 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:48]
+  input    VBYP 4.97 V   IIN 1152 mA   BC1.2 DCP
+  pack     4.336 V   +1091 mA   86%   27.3 C
+  main     in 4.332 V  cell 4.319 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.291 V   +570.3 mA (chg 570 / dis 0)  cap 900 mA
+  branches net +1127 mA (gauge says +1091 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:53]
+  input    VBYP 4.99 V   IIN 1147 mA   BC1.2 DCP
+  pack     4.338 V   +1088 mA   86%   27.3 C
+  main     in 4.332 V  cell 4.319 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.293 V   +567.2 mA (chg 567 / dis 0)  cap 900 mA
+  branches net +1125 mA (gauge says +1088 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:26:58]
+  input    VBYP 4.97 V   IIN 1107 mA   BC1.2 DCP
+  pack     4.338 V   +1090 mA   86%   27.3 C
+  main     in 4.330 V  cell 4.319 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.293 V   +565.6 mA (chg 566 / dis 0)  cap 900 mA
+  branches net +1125 mA (gauge says +1090 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:03]
+  input    VBYP 4.96 V   IIN 1142 mA   BC1.2 DCP
+  pack     4.336 V   +1095 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +562.5 mA (chg 562 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.293 V   +562.5 mA (chg 562 / dis 0)  cap 900 mA
+  branches net +1125 mA (gauge says +1095 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:08]
+  input    VBYP 4.97 V   IIN 1094 mA   BC1.2 DCP
+  pack     4.336 V   +1107 mA   86%   27.3 C
+  main     in 4.330 V  cell 4.319 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.293 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  branches net +1117 mA (gauge says +1107 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:13]
+  input    VBYP 4.97 V   IIN 1099 mA   BC1.2 DCP
+  pack     4.336 V   +1079 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.293 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  branches net +1116 mA (gauge says +1079 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:18]
+  input    VBYP 4.97 V   IIN 1130 mA   BC1.2 DCP
+  pack     4.338 V   +1098 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +560.9 mA (chg 561 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.293 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  branches net +1119 mA (gauge says +1098 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:23]
+  input    VBYP 4.98 V   IIN 1100 mA   BC1.2 DCP
+  pack     4.338 V   +1081 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.303 V  cell 4.291 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  branches net +1114 mA (gauge says +1081 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:28]
+  input    VBYP 4.99 V   IIN 1087 mA   BC1.2 DCP
+  pack     4.338 V   +1082 mA   86%   27.3 C
+  main     in 4.330 V  cell 4.321 V   +562.5 mA (chg 562 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.293 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  branches net +1116 mA (gauge says +1082 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:33]
+  input    VBYP 4.98 V   IIN 1074 mA   BC1.2 DCP
+  pack     4.336 V   +1063 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +554.7 mA (chg 555 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.293 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  branches net +1108 mA (gauge says +1063 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:38]
+  input    VBYP 4.97 V   IIN 1097 mA   BC1.2 DCP
+  pack     4.338 V   +1072 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +562.5 mA (chg 562 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.293 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  branches net +1112 mA (gauge says +1072 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:44]
+  input    VBYP 4.98 V   IIN 1090 mA   BC1.2 DCP
+  pack     4.338 V   +1063 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +564.1 mA (chg 564 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.294 V   +551.6 mA (chg 552 / dis 0)  cap 900 mA
+  branches net +1116 mA (gauge says +1063 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:49]
+  input    VBYP 4.97 V   IIN 1078 mA   BC1.2 DCP
+  pack     4.336 V   +1051 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +559.4 mA (chg 559 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.294 V   +548.4 mA (chg 548 / dis 0)  cap 900 mA
+  branches net +1108 mA (gauge says +1051 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:54]
+  input    VBYP 4.94 V   IIN 1242 mA   BC1.2 DCP
+  pack     4.336 V   +1053 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.294 V   +546.9 mA (chg 547 / dis 0)  cap 900 mA
+  branches net +1103 mA (gauge says +1053 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:27:59]
+  input    VBYP 4.97 V   IIN 1072 mA   BC1.2 DCP
+  pack     4.336 V   +1024 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.294 V   +545.3 mA (chg 545 / dis 0)  cap 900 mA
+  branches net +1102 mA (gauge says +1024 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:04]
+  input    VBYP 4.99 V   IIN 1059 mA   BC1.2 DCP
+  pack     4.338 V   +1076 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +568.8 mA (chg 569 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.294 V   +543.8 mA (chg 544 / dis 0)  cap 900 mA
+  branches net +1112 mA (gauge says +1076 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:09]
+  input    VBYP 4.99 V   IIN 1051 mA   BC1.2 DCP
+  pack     4.338 V   +1058 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +562.5 mA (chg 562 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +542.2 mA (chg 542 / dis 0)  cap 900 mA
+  branches net +1105 mA (gauge says +1058 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:14]
+  input    VBYP 4.98 V   IIN 1055 mA   BC1.2 DCP
+  pack     4.336 V   +1045 mA   86%   27.3 C
+  main     in 4.332 V  cell 4.321 V   +560.9 mA (chg 561 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +539.1 mA (chg 539 / dis 0)  cap 900 mA
+  branches net +1100 mA (gauge says +1045 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:19]
+  input    VBYP 4.98 V   IIN 1062 mA   BC1.2 DCP
+  pack     4.338 V   +1057 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +562.5 mA (chg 562 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.294 V   +539.1 mA (chg 539 / dis 0)  cap 900 mA
+  branches net +1102 mA (gauge says +1057 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:24]
+  input    VBYP 4.99 V   IIN 1067 mA   BC1.2 DCP
+  pack     4.338 V   +1045 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +556.2 mA (chg 556 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +534.4 mA (chg 534 / dis 0)  cap 900 mA
+  branches net +1091 mA (gauge says +1045 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:29]
+  input    VBYP 4.97 V   IIN 1121 mA   BC1.2 DCP
+  pack     4.338 V   +1054 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +557.8 mA (chg 558 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.294 V   +534.4 mA (chg 534 / dis 0)  cap 900 mA
+  branches net +1092 mA (gauge says +1054 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:34]
+  input    VBYP 4.99 V   IIN 1042 mA   BC1.2 DCP
+  pack     4.339 V   +1023 mA   86%   27.3 C
+  main     in 4.330 V  cell 4.321 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.304 V  cell 4.295 V   +532.8 mA (chg 533 / dis 0)  cap 900 mA
+  branches net +1086 mA (gauge says +1023 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:39]
+  input    VBYP 4.97 V   IIN 1027 mA   BC1.2 DCP
+  pack     4.337 V   +1025 mA   86%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +548.4 mA (chg 548 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +534.4 mA (chg 534 / dis 0)  cap 900 mA
+  branches net +1083 mA (gauge says +1025 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:45]
+  input    VBYP 5.00 V   IIN 1033 mA   BC1.2 DCP
+  pack     4.335 V   +1048 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +553.1 mA (chg 553 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +528.1 mA (chg 528 / dis 0)  cap 900 mA
+  branches net +1081 mA (gauge says +1048 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:50]
+  input    VBYP 5.00 V   IIN 1034 mA   BC1.2 DCP
+  pack     4.337 V   +1008 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +550.0 mA (chg 550 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +528.1 mA (chg 528 / dis 0)  cap 900 mA
+  branches net +1078 mA (gauge says +1008 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:28:55]
+  input    VBYP 4.87 V   IIN 1458 mA   BC1.2 DCP
+  pack     4.326 V    +994 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +471.9 mA (chg 472 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +532.8 mA (chg 533 / dis 0)  cap 900 mA
+  branches net +1005 mA (gauge says +994 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CC / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:00]
+  input    VBYP 4.99 V   IIN 1010 mA   BC1.2 DCP
+  pack     4.337 V   +1011 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +545.3 mA (chg 545 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +523.4 mA (chg 523 / dis 0)  cap 900 mA
+  branches net +1069 mA (gauge says +1011 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:05]
+  input    VBYP 5.00 V   IIN 1028 mA   BC1.2 DCP
+  pack     4.336 V   +1011 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.322 V   +540.6 mA (chg 541 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +528.1 mA (chg 528 / dis 0)  cap 900 mA
+  branches net +1069 mA (gauge says +1011 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:10]
+  input    VBYP 5.00 V   IIN 1027 mA   BC1.2 DCP
+  pack     4.335 V   +1009 mA   87%   27.3 C
+  main     in 4.330 V  cell 4.320 V   +535.9 mA (chg 536 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +523.4 mA (chg 523 / dis 0)  cap 900 mA
+  branches net +1059 mA (gauge says +1009 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:15]
+  input    VBYP 5.00 V   IIN 1021 mA   BC1.2 DCP
+  pack     4.337 V   +1000 mA   87%   27.3 C
+  main     in 4.332 V  cell 4.321 V   +535.9 mA (chg 536 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +520.3 mA (chg 520 / dis 0)  cap 900 mA
+  branches net +1056 mA (gauge says +1000 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:20]
+  input    VBYP 5.01 V   IIN 1015 mA   BC1.2 DCP
+  pack     4.338 V    +971 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +539.1 mA (chg 539 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +521.9 mA (chg 522 / dis 0)  cap 900 mA
+  branches net +1061 mA (gauge says +971 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:25]
+  input    VBYP 5.00 V   IIN  991 mA   BC1.2 DCP
+  pack     4.338 V    +988 mA   87%   27.3 C
+  main     in 4.332 V  cell 4.321 V   +539.1 mA (chg 539 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.296 V   +518.8 mA (chg 519 / dis 0)  cap 900 mA
+  branches net +1058 mA (gauge says +988 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:30]
+  input    VBYP 5.02 V   IIN 1003 mA   BC1.2 DCP
+  pack     4.338 V    +998 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +531.2 mA (chg 531 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.296 V   +515.6 mA (chg 516 / dis 0)  cap 900 mA
+  branches net +1047 mA (gauge says +998 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:35]
+  input    VBYP 4.99 V   IIN 1042 mA   BC1.2 DCP
+  pack     4.338 V   +1005 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +529.7 mA (chg 530 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.295 V   +515.6 mA (chg 516 / dis 0)  cap 900 mA
+  branches net +1045 mA (gauge says +1005 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:40]
+  input    VBYP 5.01 V   IIN 1006 mA   BC1.2 DCP
+  pack     4.335 V    +990 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +526.6 mA (chg 527 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.296 V   +512.5 mA (chg 512 / dis 0)  cap 900 mA
+  branches net +1039 mA (gauge says +990 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:46]
+  input    VBYP 4.92 V   IIN 1022 mA   BC1.2 DCP
+  pack     4.336 V    +992 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +534.4 mA (chg 534 / dis 0)  cap 900 mA
+  sub      in 4.305 V  cell 4.296 V   +506.2 mA (chg 506 / dis 0)  cap 900 mA
+  branches net +1041 mA (gauge says +992 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:51]
+  input    VBYP 4.90 V   IIN 1032 mA   BC1.2 DCP
+  pack     4.337 V    +976 mA   87%   27.3 C
+  main     in 4.330 V  cell 4.321 V   +528.1 mA (chg 528 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +509.4 mA (chg 509 / dis 0)  cap 900 mA
+  branches net +1038 mA (gauge says +976 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:29:56]
+  input    VBYP 4.97 V   IIN  993 mA   BC1.2 DCP
+  pack     4.336 V    +976 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.322 V   +521.9 mA (chg 522 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +507.8 mA (chg 508 / dis 0)  cap 900 mA
+  branches net +1030 mA (gauge says +976 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:01]
+  input    VBYP 4.98 V   IIN  992 mA   BC1.2 DCP
+  pack     4.338 V    +978 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.320 V   +521.9 mA (chg 522 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +504.7 mA (chg 505 / dis 0)  cap 900 mA
+  branches net +1027 mA (gauge says +978 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:06]
+  input    VBYP 4.97 V   IIN  992 mA   BC1.2 DCP
+  pack     4.336 V    +998 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +520.3 mA (chg 520 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +504.7 mA (chg 505 / dis 0)  cap 900 mA
+  branches net +1025 mA (gauge says +998 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:11]
+  input    VBYP 4.97 V   IIN 1028 mA   BC1.2 DCP
+  pack     4.337 V    +998 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +515.6 mA (chg 516 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +503.1 mA (chg 503 / dis 0)  cap 900 mA
+  branches net +1019 mA (gauge says +998 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:16]
+  input    VBYP 4.99 V   IIN  991 mA   BC1.2 DCP
+  pack     4.338 V    +959 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +514.1 mA (chg 514 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.298 V   +496.9 mA (chg 497 / dis 0)  cap 900 mA
+  branches net +1011 mA (gauge says +959 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:21]
+  input    VBYP 4.98 V   IIN  999 mA   BC1.2 DCP
+  pack     4.338 V    +940 mA   87%   27.3 C
+  main     in 4.332 V  cell 4.322 V   +510.9 mA (chg 511 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.298 V   +500.0 mA (chg 500 / dis 0)  cap 900 mA
+  branches net +1011 mA (gauge says +940 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:26]
+  input    VBYP 4.98 V   IIN  967 mA   BC1.2 DCP
+  pack     4.337 V    +962 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +510.9 mA (chg 511 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.298 V   +501.6 mA (chg 502 / dis 0)  cap 900 mA
+  branches net +1012 mA (gauge says +962 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:31]
+  input    VBYP 4.99 V   IIN  992 mA   BC1.2 DCP
+  pack     4.337 V    +962 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +506.2 mA (chg 506 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +496.9 mA (chg 497 / dis 0)  cap 900 mA
+  branches net +1003 mA (gauge says +962 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:36]
+  input    VBYP 4.98 V   IIN  977 mA   BC1.2 DCP
+  pack     4.336 V    +977 mA   87%   27.3 C
+  main     in 4.330 V  cell 4.322 V   +506.2 mA (chg 506 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +496.9 mA (chg 497 / dis 0)  cap 900 mA
+  branches net +1003 mA (gauge says +977 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:41]
+  input    VBYP 5.00 V   IIN  984 mA   BC1.2 DCP
+  pack     4.337 V    +944 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +507.8 mA (chg 508 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +493.8 mA (chg 494 / dis 0)  cap 900 mA
+  branches net +1002 mA (gauge says +944 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:47]
+  input    VBYP 5.00 V   IIN  974 mA   BC1.2 DCP
+  pack     4.337 V    +945 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +504.7 mA (chg 505 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +492.2 mA (chg 492 / dis 0)  cap 900 mA
+  branches net +997 mA (gauge says +945 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:52]
+  input    VBYP 5.01 V   IIN  939 mA   BC1.2 DCP
+  pack     4.336 V    +959 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.322 V   +503.1 mA (chg 503 / dis 0)  cap 900 mA
+  sub      in 4.308 V  cell 4.298 V   +490.6 mA (chg 491 / dis 0)  cap 900 mA
+  branches net +994 mA (gauge says +959 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:30:57]
+  input    VBYP 5.00 V   IIN  958 mA   BC1.2 DCP
+  pack     4.338 V    +958 mA   87%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +500.0 mA (chg 500 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.298 V   +490.6 mA (chg 491 / dis 0)  cap 900 mA
+  branches net +991 mA (gauge says +958 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:02]
+  input    VBYP 4.99 V   IIN  972 mA   BC1.2 DCP
+  pack     4.337 V    +943 mA   88%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +501.6 mA (chg 502 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +487.5 mA (chg 488 / dis 0)  cap 900 mA
+  branches net +989 mA (gauge says +943 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:07]
+  input    VBYP 5.00 V   IIN  984 mA   BC1.2 DCP
+  pack     4.337 V    +930 mA   88%   27.3 C
+  main     in 4.331 V  cell 4.322 V   +493.8 mA (chg 494 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.298 V   +487.5 mA (chg 488 / dis 0)  cap 900 mA
+  branches net +981 mA (gauge says +930 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:12]
+  input    VBYP 5.01 V   IIN  925 mA   BC1.2 DCP
+  pack     4.337 V    +922 mA   88%   27.3 C
+  main     in 4.330 V  cell 4.321 V   +496.9 mA (chg 497 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.298 V   +482.8 mA (chg 483 / dis 0)  cap 900 mA
+  branches net +980 mA (gauge says +922 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:17]
+  input    VBYP 4.98 V   IIN  953 mA   BC1.2 DCP
+  pack     4.336 V    +931 mA   88%   27.3 C
+  main     in 4.332 V  cell 4.321 V   +493.8 mA (chg 494 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.298 V   +485.9 mA (chg 486 / dis 0)  cap 900 mA
+  branches net +980 mA (gauge says +931 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:22]
+  input    VBYP 4.99 V   IIN  926 mA   BC1.2 DCP
+  pack     4.338 V    +937 mA   88%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +490.6 mA (chg 491 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.298 V   +481.2 mA (chg 481 / dis 0)  cap 900 mA
+  branches net +972 mA (gauge says +937 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:27]
+  input    VBYP 5.00 V   IIN 1033 mA   BC1.2 DCP
+  pack     4.336 V    +923 mA   88%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +493.8 mA (chg 494 / dis 0)  cap 900 mA
+  sub      in 4.308 V  cell 4.298 V   +479.7 mA (chg 480 / dis 0)  cap 900 mA
+  branches net +973 mA (gauge says +923 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:32]
+  input    VBYP 5.00 V   IIN  921 mA   BC1.2 DCP
+  pack     4.336 V    +914 mA   88%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +490.6 mA (chg 491 / dis 0)  cap 900 mA
+  sub      in 4.306 V  cell 4.296 V   +479.7 mA (chg 480 / dis 0)  cap 900 mA
+  branches net +970 mA (gauge says +914 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:37]
+  input    VBYP 5.00 V   IIN  930 mA   BC1.2 DCP
+  pack     4.337 V    +923 mA   88%   27.3 C
+  main     in 4.331 V  cell 4.322 V   +487.5 mA (chg 488 / dis 0)  cap 900 mA
+  sub      in 4.308 V  cell 4.299 V   +482.8 mA (chg 483 / dis 0)  cap 900 mA
+  branches net +970 mA (gauge says +923 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:43]
+  input    VBYP 5.01 V   IIN  936 mA   BC1.2 DCP
+  pack     4.337 V    +902 mA   88%   27.3 C
+  main     in 4.331 V  cell 4.322 V   +482.8 mA (chg 483 / dis 0)  cap 900 mA
+  sub      in 4.308 V  cell 4.299 V   +478.1 mA (chg 478 / dis 0)  cap 900 mA
+  branches net +961 mA (gauge says +902 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:48]
+  input    VBYP 5.01 V   IIN  902 mA   BC1.2 DCP
+  pack     4.336 V    +932 mA   88%   27.3 C
+  main     in 4.331 V  cell 4.322 V   +481.2 mA (chg 481 / dis 0)  cap 900 mA
+  sub      in 4.308 V  cell 4.298 V   +475.0 mA (chg 475 / dis 0)  cap 900 mA
+  branches net +956 mA (gauge says +932 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:53]
+  input    VBYP 5.00 V   IIN  921 mA   BC1.2 DCP
+  pack     4.337 V    +896 mA   88%   27.3 C
+  main     in 4.331 V  cell 4.322 V   +476.6 mA (chg 477 / dis 0)  cap 900 mA
+  sub      in 4.308 V  cell 4.299 V   +476.6 mA (chg 477 / dis 0)  cap 900 mA
+  branches net +953 mA (gauge says +896 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:31:58]
+  input    VBYP 5.01 V   IIN  947 mA   BC1.2 DCP
+  pack     4.336 V    +901 mA   88%   27.3 C
+  main     in 4.331 V  cell 4.321 V   +475.0 mA (chg 475 / dis 0)  cap 900 mA
+  sub      in 4.308 V  cell 4.299 V   +473.4 mA (chg 473 / dis 0)  cap 900 mA
+  branches net +948 mA (gauge says +901 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    fast-CV / battery good   CHGIN valid   AICL idle
+  driver   bound: Charging, cc 1500 mA, ilim 1500 mA
+[01:32:03]
+  input    VBYP 4.86 V   IIN 1466 mA   BC1.2 none
+  pack     4.161 V    -475 mA   88%   27.3 C
+  main     in 4.150 V  cell 4.154 V   -345.3 mA (chg 0 / dis 345)  cap 900 mA
+  sub      in 4.155 V  cell 4.151 V   -212.5 mA (chg 0 / dis 212)  cap 900 mA
+  branches net -558 mA (gauge says -475 mA)
+  chip     charge 1500 mA   input 1500 mA   float 4350 mV   chg_en 1
+  state    timer-fault / battery ?   CHGIN ABSENT   AICL idle
+  driver   bound: Discharging, cc 1500 mA, ilim 1500 mA
+[01:32:08]
+  input    VBYP 4.86 V   IIN 1466 mA   BC1.2 none
+  pack     4.147 V    -578 mA   88%   27.3 C
+  main     in 4.112 V  cell 4.129 V   -365.6 mA (chg 0 / dis 366)  cap 900 mA
+  sub      in 4.166 V  cell 4.165 V   -296.9 mA (chg 0 / dis 297)  cap 900 mA
+  branches net -662 mA (gauge says -578 mA)
+  chip     charge 100 mA   input 500 mA   float 4350 mV   chg_en 1
+  state    timer-fault / battery ?   CHGIN ABSENT   AICL idle
+  driver   bound: Discharging, cc 100 mA, ilim 500 mA
+[01:32:13]
+  input    VBYP 4.86 V   IIN 1466 mA   BC1.2 none
+  pack     4.147 V    -511 mA   88%   27.3 C
+  main     in 4.141 V  cell 4.150 V   -337.5 mA (chg 0 / dis 338)  cap 900 mA
+  sub      in 4.160 V  cell 4.151 V   -228.1 mA (chg 0 / dis 228)  cap 900 mA
+  branches net -566 mA (gauge says -511 mA)
+  chip     charge 100 mA   input 500 mA   float 4350 mV   chg_en 1
+  state    timer-fault / battery ?   CHGIN ABSENT   AICL idle
+  driver   bound: Discharging, cc 100 mA, ilim 500 mA
+[01:32:18]
+  input    VBYP 4.86 V   IIN 1466 mA   BC1.2 none
+  pack     4.143 V    -521 mA   88%   27.3 C
+  main     in 4.138 V  cell 4.138 V   -420.3 mA (chg 0 / dis 420)  cap 900 mA
+  sub      in 4.140 V  cell 4.141 V   -234.4 mA (chg 0 / dis 234)  cap 900 mA
+  branches net -655 mA (gauge says -521 mA)
+  chip     charge 100 mA   input 500 mA   float 4350 mV   chg_en 1
+  state    timer-fault / battery ?   CHGIN ABSENT   AICL idle
+  driver   bound: Discharging, cc 100 mA, ilim 500 mA

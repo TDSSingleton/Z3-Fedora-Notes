@@ -35,6 +35,7 @@ make -s defconfig >/dev/null || exit 1
   while read -r l; do
     case "$l" in
       CONFIG_*=y) ./scripts/config --enable "${l%%=*}" ;;
+      CONFIG_*=m) ./scripts/config --module "${l%%=*}" ;;
       \#*is\ not\ set) sym=$(echo "$l" | sed 's/^# \(CONFIG_[A-Z0-9_]*\).*/\1/'); ./scripts/config --disable "$sym" ;;
       CONFIG_CMDLINE=*) ./scripts/config --set-str CONFIG_CMDLINE "$(echo "$l" | sed 's/^CONFIG_CMDLINE="\(.*\)"$/\1/')" ;;
     esac

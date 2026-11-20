@@ -1,0 +1,473 @@
+#!/usr/bin/env python3
+"""Fold 3: a USB-C mode control that lives in the notification area.
+
+Android can do this because its PD driver is told about the attach. We have no
+Type-C driver at all, so the trigger is a poll of the MAX77705's own CC state
+machine, which runs in the chip's firmware and is readable over i2c
+(HANDBOOK 34.4):
+
+    usbc 0x0a  [2:0] CCStat     0 none, 1 SINK, 2 SOURCE, 3 audio, 4 debug
+               [7:6] CCPinStat  active CC pin
+
+CCStat never reaches SOURCE -- the block is sink-only -- so "a device is
+attached" is CCPinStat != 0 with CCStat == 0. Decoding CCStat alone reports a
+plugged-in device as nothing at all.
+
+Two hardware facts shape the whole design:
+
+  * The CC block cannot START detecting while we drive VBUS. It read 0 the
+    entire time our own OTG boost was up, including with the dongle already
+    attached, and only reported CC1 once the boost went off (it then latches,
+    and keeps reporting across a later boost-on). So the idle state must be
+    gadget mode with the boost OFF, and a detach during host mode is invisible
+    on CC -- it is inferred from the USB bus going empty instead.
+
+  * Powering the port only after the user accepts IS the VBUS edge a device
+    needs: the AB13X DAC stayed invisible plugged into an already-live port and
+    enumerated 1 s after an off/on edge. The UI flow and the hardware
+    workaround are the same action, which is the happy part of this design.
+
+Notifications go over D-Bus directly rather than through notify-send, because
+notify-send cannot close a notification it posted. Notify returns an id,
+CloseNotification takes it away, and a `gdbus monitor` child reports which
+button was pressed.
+
+**The contract, as the user asked for it (Android's USB notification):** while
+a device is plugged in there is ALWAYS a notification offering the matching
+action, and it goes away when the device does -- not on a timeout, not on a
+swipe. So the loop is declarative: each tick works out which notification
+*should* be on screen and reconciles reality with it, re-posting if anything
+took ours away. Two bugs came from doing this event-driven instead:
+
+  * a single flickered CC read (device -> none -> device) closed the offer and
+    the control vanished with the dongle still attached. CC itself is steady
+    (40/40 identical rapid samples), but the chip re-runs its own detection
+    now and then, and a read can land mid-cycle. Hence hysteresis: latch
+    attached fast, require DETACH_CONFIRM consecutive empty reads to let go.
+
+  * a dismissal was treated as permanent, so swiping once meant no button for
+    the rest of the session. Android's USB notification is ongoing and cannot
+    be dismissed; this re-posts after REPOST_AFTER seconds.
+
+Runs as root (it does the i2c and the role switch itself) and shells out to the
+desktop user for D-Bus, so there is no polkit rule and no helper IPC.
+"""
+import glob
+import os
+import pwd
+import queue
+import re
+import subprocess
+import sys
+import threading
+import time
+
+POLL = 1.0           # seconds between CC reads
+IDLE_REVERT = 25     # seconds in host mode with an empty bus before giving up
+ATTACH_CONFIRM = 2   # consecutive 'device' reads to latch attached
+DETACH_CONFIRM = 8   # consecutive empty reads to let go -- rides out flicker
+REPOST_AFTER = 3     # seconds before putting a removed notification back
+RENAG_AFTER = 60     # quiet period after an auto-revert, so it does not nag
+
+USBC, CC_STATUS0, BC_STATUS = "0x25", "0x0a", "0x08"
+ROLE = "/sys/class/usb_role/a600000.usb-role-switch/role"
+OTG = "/usr/local/sbin/fold3-otg"
+NOTIF_PATH = "/org/freedesktop/Notifications"
+NOTIF_DEST = "org.freedesktop.Notifications"
+
+DRY = "--dry-run" in sys.argv
+
+RE_ID = re.compile(r"uint32 (\d+)")
+RE_ACTION = re.compile(r"ActionInvoked \(uint32 (\d+), '([^']*)'\)")
+RE_CLOSED = re.compile(r"NotificationClosed \(uint32 (\d+), uint32 (\d+)\)")
+
+
+def log(*a):
+    print(*a, flush=True)
+
+
+# ---------------------------------------------------------------- hardware
+
+def bus():
+    """i2c bus numbers shift between boots; never hardcode."""
+    d = glob.glob("/sys/bus/i2c/devices/*-0066")
+    return os.path.basename(d[0]).split("-")[0] if d else None
+
+
+def cc():
+    b = bus()
+    if not b:
+        return None
+    try:
+        r = subprocess.run(["i2cget", "-y", "-f", b, USBC, CC_STATUS0],
+                           capture_output=True, text=True, timeout=5)
+        v = int(r.stdout.strip(), 16)
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return None
+    return v & 0x07, (v >> 6) & 0x03
+
+
+def bc():
+    """BC1.2 result: (VBUSDet, ChgTyp). ChgTyp 1=SDP, 2=CDP, 3=DCP.
+
+    This is what separates "plugged into a computer" from "plugged into a wall
+    wart" -- CCStat says SINK for both. Confirmed on hardware 2026-11-16: a PC
+    port reads BC_STATUS 0x82, i.e. VBUS present and ChgTyp=CDP.
+    """
+    b = bus()
+    if not b:
+        return None
+    try:
+        r = subprocess.run(["i2cget", "-y", "-f", b, USBC, BC_STATUS],
+                           capture_output=True, text=True, timeout=5)
+        v = int(r.stdout.strip(), 16)
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return None
+    return (v >> 7) & 1, v & 0x03
+
+
+def on_a_computer(raw):
+    """True when the thing we are the sink of is a PC rather than a charger."""
+    if raw != "charger":
+        return False
+    s = bc()
+    return bool(s and s[1] in (1, 2))      # SDP or CDP
+
+
+MTP = "/usr/local/bin/fold3-mtp"
+
+
+def mtp_is_on():
+    return os.path.islink(
+        "/sys/kernel/config/usb_gadget/fold3/configs/c.1/ffs.mtp")
+
+
+def mtp(cmd):
+    """Run fold3-mtp. It unbinds and rebinds the gadget, which is safe with
+    configfs (HANDBOOK 36.5) but takes a couple of seconds."""
+    try:
+        r = subprocess.run([MTP, cmd], capture_output=True, text=True,
+                           timeout=60)
+    except (OSError, subprocess.SubprocessError) as e:
+        log(f"fold3-mtp {cmd} failed: {e}")
+        return False
+    for line in (r.stdout + r.stderr).strip().splitlines():
+        log(f"  mtp: {line}")
+    return r.returncode == 0
+
+
+def classify(s):
+    """What is on the port, as far as a sink-only CC block can tell."""
+    if s is None:
+        return "unknown"
+    ccstat, ccpin = s
+    if ccstat == 1:
+        return "charger"        # we are the sink: a charger or a PC
+    if ccstat == 3:
+        return "analog"         # passive jack adapter -- cannot work here
+    if ccstat == 4:
+        return "debug"
+    if ccstat == 0:
+        return "device" if ccpin else "none"
+    return "other"
+
+
+def role():
+    try:
+        return open(ROLE).read().strip()
+    except OSError:
+        return "?"
+
+
+def usb_devices():
+    """Enumerated devices, root hubs and interfaces excluded."""
+    out = []
+    for p in glob.glob("/sys/bus/usb/devices/*"):
+        n = os.path.basename(p)
+        if not n.startswith("usb") and ":" not in n:
+            out.append(n)
+    return out
+
+
+def device_names():
+    names = []
+    for d in usb_devices():
+        try:
+            names.append(open(f"/sys/bus/usb/devices/{d}/product").read().strip())
+        except OSError:
+            names.append(d)
+    return names
+
+
+def otg(arg):
+    log(f"-> fold3-otg {arg}" + ("  (dry run)" if DRY else ""))
+    if DRY:
+        return True
+    r = subprocess.run([OTG, arg], capture_output=True, text=True)
+    for line in (r.stdout + r.stderr).splitlines():
+        log("   " + line)
+    if r.returncode:
+        log(f"   fold3-otg {arg} exited {r.returncode}")
+    return r.returncode == 0
+
+
+# ---------------------------------------------------------------- the desktop
+
+class Notifier:
+    """Post, close and get button presses, on the logged-in user's session bus.
+
+    A single `gdbus monitor` child reports ActionInvoked / NotificationClosed
+    for every notification; its stdout is drained by a thread so the poll loop
+    never blocks on it.
+    """
+
+    def __init__(self):
+        self.user = self.uid = None
+        self.mon = None
+        self.q = queue.Queue()
+
+    def session(self):
+        """(uid, user) of a logged-in desktop session, or None."""
+        for d in sorted(glob.glob("/run/user/[0-9]*")):
+            uid = os.path.basename(d)
+            if uid == "0" or not os.path.exists(f"{d}/bus"):
+                continue
+            try:
+                return uid, pwd.getpwuid(int(uid)).pw_name
+            except (KeyError, ValueError):
+                continue
+        return None
+
+    def _as_user(self, *args):
+        s = self.session()
+        if not s:
+            return None
+        self.uid, self.user = s
+        # runuser, not sudo: sudo writes a syslog line for every single
+        # invocation and buries the daemon's own log in the journal.
+        return ["runuser", "-u", self.user, "--", "env",
+                f"XDG_RUNTIME_DIR=/run/user/{self.uid}"] + list(args)
+
+    def _call(self, method, *args):
+        cmd = self._as_user("gdbus", "call", "--session", "--dest", NOTIF_DEST,
+                            "--object-path", NOTIF_PATH, "--method",
+                            f"{NOTIF_DEST}.{method}", *args)
+        if not cmd:
+            return None
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        except (OSError, subprocess.SubprocessError) as e:
+            log("dbus call failed:", e)
+            return None
+        if r.returncode:
+            log(f"dbus {method} failed: {r.stderr.strip()}")
+            return None
+        return r.stdout.strip()
+
+    def ensure_monitor(self):
+        """Keep one monitor child alive; it dies with the session."""
+        if self.mon and self.mon.poll() is None:
+            return
+        cmd = self._as_user("gdbus", "monitor", "--session", "--dest", NOTIF_DEST)
+        if not cmd:
+            return
+        try:
+            self.mon = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL, text=True)
+        except OSError as e:
+            log("cannot start dbus monitor:", e)
+            return
+        log("dbus monitor started")
+
+        def drain(p, q):
+            for line in p.stdout:
+                q.put(line)
+        threading.Thread(target=drain, args=(self.mon, self.q),
+                         daemon=True).start()
+
+    def events(self):
+        """[('action', id, key)] / [('closed', id, reason)] since last call."""
+        out = []
+        while True:
+            try:
+                line = self.q.get_nowait()
+            except queue.Empty:
+                break
+            m = RE_ACTION.search(line)
+            if m:
+                out.append(("action", int(m.group(1)), m.group(2)))
+                continue
+            m = RE_CLOSED.search(line)
+            if m:
+                out.append(("closed", int(m.group(1)), int(m.group(2))))
+        return out
+
+    def post(self, summary, body, action=None, icon="usb"):
+        """Critical urgency + no timeout, so it stays until we take it away."""
+        actions = f'["go", "{action}"]' if action else "[]"
+        out = self._call("Notify", "USB-C", "0", icon, summary, body, actions,
+                         '{"urgency": <byte 2>, "transient": <false>, '
+                         '"resident": <true>}', "0")
+        if not out:
+            return None
+        m = RE_ID.search(out)          # NB: "(uint32 4,)" -- match the field
+        return int(m.group(1)) if m else None
+
+    def close(self, nid):
+        if nid is not None:
+            self._call("CloseNotification", str(nid))
+
+
+# ---------------------------------------------------------------- main loop
+
+def main():
+    log(f"fold3-usbd: polling CC every {POLL}s"
+        f"{'  (DRY RUN, nothing will be switched)' if DRY else ''}")
+    n = Notifier()
+    n.ensure_monitor()
+    log(f"initial: port={classify(cc())} role={role()}")
+
+    nid = kind = None       # the notification on screen, and which one it is
+    dev_runs = none_runs = 0
+    attached = classify(cc()) == "device"
+    empty_since = None
+    gone_since = None       # when our notification was last taken away
+    quiet_until = 0         # suppress the offer after an auto-revert
+
+    while True:
+        time.sleep(POLL)
+        n.ensure_monitor()
+        raw = classify(cc())
+        r = role()
+
+        # ---- hysteresis. A read can land mid-detection-cycle, so believe an
+        # attach quickly and a detach only after it holds. 'unknown' is an i2c
+        # failure: no information, so it must not count toward either.
+        if raw == "device":
+            dev_runs, none_runs = dev_runs + 1, 0
+        elif raw == "none":
+            none_runs, dev_runs = none_runs + 1, 0
+        elif raw != "unknown":
+            dev_runs = none_runs = 0
+            attached = False
+        if dev_runs >= ATTACH_CONFIRM and not attached:
+            attached = True
+            log(f"attached (CC held '{raw}' x{dev_runs})")
+        if none_runs >= DETACH_CONFIRM and attached:
+            attached = False
+            log(f"detached (CC held 'none' x{none_runs})")
+
+        # ---- buttons
+        for ev, eid, val in n.events():
+            if eid != nid:
+                continue
+            if ev == "closed":
+                # 2 = the user swiped it. Per the contract we put it back.
+                nid = None
+                gone_since = time.monotonic()
+                if val == 2:
+                    log("notification dismissed; it will be re-posted while "
+                        "the device is attached")
+                continue
+            log(f"button pressed on the '{kind}' notification")
+            n.close(nid)
+            nid, prev = None, kind
+            kind = None
+            if prev == "offer":
+                if not otg("on"):
+                    log("switch to host FAILED")
+            elif prev == "active":
+                otg("off")
+                quiet_until = time.monotonic() + RENAG_AFTER
+            elif prev == "mtp-offer":
+                if not mtp("on"):
+                    log("turning MTP on FAILED")
+            elif prev == "mtp-active":
+                mtp("off")
+                quiet_until = time.monotonic() + RENAG_AFTER
+
+        # ---- in host mode CC is blind (our own VBUS masks it), so the bus is
+        # the truth. An empty bus also covers "accepted but nothing came up".
+        if r == "host":
+            if usb_devices():
+                empty_since = None
+            else:
+                empty_since = empty_since or time.monotonic()
+                if time.monotonic() - empty_since > IDLE_REVERT:
+                    log("host mode with an empty bus -- reverting")
+                    n.close(nid); nid, kind = None, None
+                    if otg("off"):
+                        quiet_until = time.monotonic() + RENAG_AFTER
+                    empty_since = None
+                    continue
+
+        # ---- what SHOULD be on screen
+        if r == "host" and usb_devices():
+            want = "active"
+        elif r != "host" and attached and time.monotonic() >= quiet_until:
+            want = "offer"
+        elif r != "host" and raw == "analog":
+            want = "analog"
+        elif r != "host" and mtp_is_on():
+            # Stays up while MTP is on even if the cable is out, so there is
+            # always a way to turn it off again.
+            want = "mtp-active"
+        elif r != "host" and on_a_computer(raw) \
+                and time.monotonic() >= quiet_until:
+            want = "mtp-offer"
+        else:
+            want = None
+
+        if kind != want:
+            if nid is not None:
+                n.close(nid)
+            nid = kind = None
+            gone_since = None
+            if want:
+                nid, kind = post(n, want), want
+                log(f"posted '{want}' as notification {nid}")
+        elif want and nid is None:
+            # something took ours away while the device is still there
+            if gone_since and time.monotonic() - gone_since >= REPOST_AFTER:
+                nid = post(n, want)
+                log(f"re-posted '{want}' as notification {nid}")
+                gone_since = None
+
+
+def post(n, want):
+    """Put the notification for `want` on screen; returns its id."""
+    if want == "active":
+        names = ", ".join(device_names()) or "a device"
+        return n.post("USB host mode is on",
+                      f"Connected: {names}.\nCharging and the serial console "
+                      "are off while host mode is on.",
+                      action="Turn off host mode", icon="audio-headphones")
+    if want == "offer":
+        return n.post("USB device connected",
+                      "Switch the port to host mode and power it?\n"
+                      "Charging and the serial console stop while it is on.",
+                      action="Use as USB host", icon="audio-headphones")
+    if want == "mtp-offer":
+        return n.post("Connected to a computer",
+                      "Share files over the cable?\n"
+                      "The serial console and charging keep working.",
+                      action="Turn on file transfer", icon="drive-harddisk")
+    if want == "mtp-active":
+        return n.post("File transfer is on",
+                      "This phone appears as a device you can browse.\n"
+                      "Turn it off when you are done.",
+                      action="Turn off file transfer", icon="drive-harddisk")
+    if want == "analog":
+        return n.post("Analog adapter",
+                      "This is a passive jack adapter. It needs the phone's "
+                      "own headphone path, which does not work on this unit "
+                      "-- a dongle with its own DAC does.",
+                      icon="dialog-warning")
+    return None
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass

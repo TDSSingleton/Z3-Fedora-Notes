@@ -1,0 +1,14 @@
+# NetworkManager unmanages USB gadget interfaces by default:
+#
+#   /usr/lib/udev/rules.d/85-nm-unmanaged.rules
+#   # USB gadget device. Unmanage by default, since whatever created it
+#   # probably configures it.
+#   ENV{DEVTYPE}=="gadget", ENV{NM_UNMANAGED}="1"
+#
+# Here nothing else configures it -- the initramfs only creates the function --
+# so without this usb0 comes up with no address and nmcli reports
+# "unmanaged ... (77) The device is unmanaged via udev rule", which looks like
+# the gadget failed when it is working perfectly.
+#
+# 86- so it runs after 85-.
+SUBSYSTEM=="net", ACTION=="add|change|move", ENV{DEVTYPE}=="gadget", ENV{INTERFACE}=="usb0", ENV{NM_UNMANAGED}="0"

@@ -1,0 +1,170 @@
+#!/usr/bin/python3
+"""Fold 3: the power button turns the screen off, and back on. No suspend.
+
+PowerDevil will not do this here. Its PowerButtonAction was set to
+TurnOffScreen and reloaded, and pressing the key did nothing at all -- the key
+clearly reaches KWin, because it wakes a blanked screen, but it never reaches
+PowerDevil's button handler. Rather than keep guessing at PowerDevil's enum,
+this does the one thing that was actually wanted, directly.
+
+Two facts this depends on, both measured on the device:
+
+* **The power key is `pmic_pwrkey`, not `gpio-keys`.** `gpio-keys` carries
+  KEY_VOLUMEUP (bit 115) and `pmic_resin` carries KEY_VOLUMEDOWN (114);
+  KEY_POWER (116) is on its own PMIC device. Event numbering is not stable
+  across boots, so the device is found by capability bit, never by name or
+  number.
+
+* **The user session cannot read /dev/input/event*.** They are root:input
+  0660 with no uaccess ACL -- KWin gets its devices from logind by fd-passing,
+  not by opening them. So the watcher runs as root, and shells out to
+  `fold3-dpms` as the session user, which is the part that needs Wayland.
+
+The screen state is read from backlight `bl_power` (0 = on, 4 = off) rather
+than tracked internally, because KWin blanks and unblanks on its own (idle
+timeout, wake-on-input, the fold switch) and any state we kept would drift.
+
+The one race that matters: KWin wakes the screen on *any* input, including the
+very keypress we are handling. If we simply toggled on what we read, the wake
+press would be read as "screen is on" and we would turn it straight back off.
+So a press is ignored when the screen turned on within the last second -- that
+press was the wake, and KWin has already done the work.
+"""
+import glob
+import os
+import struct
+import subprocess
+import sys
+import time
+
+EV_KEY, KEY_POWER = 0x01, 116
+EVENT_SIZE = struct.calcsize("llHHi")          # 24 on 64-bit
+POLL = 0.1                                      # backlight sampling interval
+WAKE_GRACE = 1.0                                # s; see the race note above
+
+USER = os.environ.get("FOLD3_USER", "bunsenfold")
+UID = os.environ.get("FOLD3_UID", "1000")
+WAYLAND = os.environ.get("FOLD3_WAYLAND", "wayland-1")
+DPMS = "/usr/local/bin/fold3-dpms"
+OUTPUTS = os.environ.get("FOLD3_OUTPUTS", "DSI-1,DSI-2").split(",")
+
+
+def log(*a):
+    print(*a, flush=True)
+
+
+def has_key_bit(path, bit):
+    """Is `bit` set in an input device's key capability bitmap?
+
+    The bitmap is space-separated 64-bit hex words, LEAST significant last.
+    """
+    try:
+        words = open(path).read().split()
+    except OSError:
+        return False
+    val = 0
+    for i, w in enumerate(reversed(words)):
+        val |= int(w, 16) << (64 * i)
+    return bool(val >> bit & 1)
+
+
+def find_power_key():
+    for p in sorted(glob.glob("/sys/class/input/event*")):
+        if has_key_bit(p + "/device/capabilities/key", KEY_POWER):
+            name = ""
+            try:
+                name = open(p + "/device/name").read().strip()
+            except OSError:
+                pass
+            return "/dev/input/" + os.path.basename(p), name
+    return None, None
+
+
+def screen_is_on():
+    """True if ANY panel backlight is powered. 0 = FB_BLANK_UNBLANK."""
+    for b in glob.glob("/sys/class/backlight/*/bl_power"):
+        try:
+            if int(open(b).read().strip()) == 0:
+                return True
+        except (OSError, ValueError):
+            continue
+    return False
+
+
+def dpms(state):
+    """Drive KWin's DPMS for each output, as the session user."""
+    for out in OUTPUTS:
+        cmd = ["sudo", "-u", USER,
+               "env", f"XDG_RUNTIME_DIR=/run/user/{UID}",
+               f"WAYLAND_DISPLAY={WAYLAND}", DPMS, out.strip(), state]
+        try:
+            r = subprocess.run(cmd, capture_output=True, timeout=10)
+            if r.returncode:
+                log(f"  {out} {state}: rc={r.returncode} "
+                    f"{r.stderr.decode(errors='replace').strip()}")
+        except subprocess.TimeoutExpired:
+            log(f"  {out} {state}: timed out")
+
+
+def main():
+    dev, name = find_power_key()
+    for _ in range(30):
+        if dev:
+            break
+        time.sleep(1)
+        dev, name = find_power_key()
+    if not dev:
+        sys.exit("no input device carries KEY_POWER")
+    log(f"watching {dev} ({name}) for KEY_POWER; outputs {OUTPUTS}")
+
+    fd = os.open(dev, os.O_RDONLY | os.O_NONBLOCK)
+    import selectors
+    sel = selectors.DefaultSelector()
+    sel.register(fd, selectors.EVENT_READ)
+
+    on = screen_is_on()
+    last_on_ts = time.monotonic() if on else 0.0
+    log(f"initial: screen {'on' if on else 'off'}")
+
+    while True:
+        events = sel.select(timeout=POLL)
+
+        # Sample the backlight first, so `on`/`last_on_ts` describe the state
+        # as it was going INTO this keypress.
+        now_on = screen_is_on()
+        if now_on and not on:
+            last_on_ts = time.monotonic()
+        was_on, grace = on, time.monotonic() - last_on_ts
+        on = now_on
+
+        if not events:
+            continue
+
+        pressed = False
+        try:
+            data = os.read(fd, EVENT_SIZE * 64)
+        except BlockingIOError:
+            continue
+        for off in range(0, len(data) - EVENT_SIZE + 1, EVENT_SIZE):
+            _, _, etype, code, value = struct.unpack(
+                "llHHi", data[off:off + EVENT_SIZE])
+            if etype == EV_KEY and code == KEY_POWER and value == 1:
+                pressed = True
+        if not pressed:
+            continue
+
+        if not was_on:
+            # Screen was off: this press is the wake. KWin normally does it
+            # itself; ask anyway, because it is idempotent and guarantees the
+            # button always gets the screen back.
+            log("power: screen was off -> on")
+            dpms("on")
+        elif grace < WAKE_GRACE:
+            log(f"power: ignored (screen woke {grace:.2f}s ago)")
+        else:
+            log("power: screen off")
+            dpms("off")
+
+
+if __name__ == "__main__":
+    main()

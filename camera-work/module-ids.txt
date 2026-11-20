@@ -1,0 +1,9 @@
+rear2_camtype            SONY_IMX258
+rear3_camtype            HYNIX_HI1337
+rear_camtype             SONY_IMX555
+rear2_moduleid           CVOHR0604003003
+rear_moduleid            SVOHC17BE000112
+front2_camtype           SONY_IMX374
+front_camtype            SONY_IMX471
+front2_moduleid          MVOHS1330000F01
+front_moduleid           PVOHG15520A0F05

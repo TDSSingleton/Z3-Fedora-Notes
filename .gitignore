@@ -31,6 +31,12 @@ initramfs-work/busybox-src/
 initramfs-work/busybox.tar.bz2
 vendor-src/lrzsz-extract/
 vendor-src/lrzsz-build/
+# DIAG/EFS2 work: upstream checkouts, not ours. andersson/diag is built ON the
+# phone (see HANDBOOK 35.2.1); qrtr supplies libqrtr.h; QCSuper is the EFS2
+# protocol reference. tools/setup-sources.sh diag re-fetches all three.
+modem-work/diag/
+modem-work/qrtr/
+modem-work/qcsuper/
 # Samsung GPL source drop -- large, retrievable from opensource.samsung.com
 SM-F926B/Kernel/
 SM-F926B/Platform/

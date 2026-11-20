@@ -1,0 +1,26 @@
+captured 2026-11-20T02:18:31+00:00
+
+kernel   7.2.15-q2q
+boot     /dev/sda19, sha256 c8f2a5356b0464a6fd7f96018bf9178a899b3d699caea885004f661f3ce4b56a
+
+DP link (from /sys/kernel/debug/dri/0/DP-1/dp_debug, dock + TV attached):
+  rate = 540000   num_lanes = 2   bw_code = 20   lclk = 540000000
+  v_level = 0     p_level = 0
+
+outputs (kscreen-doctor -o):
+  DP-1   enabled  1472,0  1920x1080  scale 1   priority 1
+  DSI-1  enabled  0,0     1179x1472  scale 1.5 priority 2
+  DSI-2  disabled
+
+DP-1 sits at x=1472, not the 1179 KWin chose. The inner panel's logical WIDTH
+swaps between 1179 and 1472 when it rotates, while KWin leaves the other
+output where it was -- so x=1179 overlapped by 293 px in one orientation.
+1472 clears the panel in both, at the cost of a gap in the other one.
+
+power, docked, 1080p output live:
+  max77705-charger  status=Charging  online=1  input_current_limit=500000
+  battery           current_now=-76875 (net discharge)  capacity=84
+
+usb role = device (gadget). The dock's hub therefore does NOT enumerate;
+lsusb is empty. Its Discover Identity says product type AMA, "USB device
+capable", NOT host capable -- it expects us to be the host.

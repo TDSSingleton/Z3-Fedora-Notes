@@ -1,0 +1,93 @@
+From: Fold 3 mainline port
+Subject: [PATCH] media: i2c: imx258: implement reset-gpios
+
+The binding has documented reset-gpios since the driver was converted to YAML
+("Reference to the GPIO connected to the XCLR pin, if any"), but the driver
+has never read it -- there is no gpiod code in imx258.c at all, as of
+7.4.0-rc1. The only "reset" it does is a register write to IMX258_REG_RESET
+inside imx258_start_streaming(), which cannot help: on a board that wires XCLR
+to a GPIO the sensor is still held in reset at probe, so it does not
+acknowledge its i2c address and probe fails at the chip-ID read:
+
+    imx258 9-001a: Error reading reg 0x0016: -6
+    imx258 9-001a: failed to read chip id 258
+
+Boards that work today must be leaving XCLR deasserted by other means (the
+rk3399-pinephone-pro, the only in-tree user, also applies a pinctrl state to
+the same pin).
+
+Handle the GPIO the way imx471.c already does, since the two sensors have the
+same power-up shape: acquire it asserted, release it in imx258_power_on()
+after the regulators and INCK are up, wait for the sensor to come out of
+reset before the first transfer, and re-assert it in imx258_power_off().
+devm_gpiod_get_optional() plus unconditional gpiod_set_value_cansleep() keeps
+boards without the pin unaffected.
+
+Tested on a Galaxy Z Fold 3 (SM-F926B), whose rear ultrawide IMX258 hangs off
+SM8350 CCI1 with XCLR on TLMM 106: without this the module never answers on
+i2c, and with it the sensor probes, streams, and returns 4208x3120 raw frames
+through camss.
+
+diff --git a/drivers/media/i2c/imx258.c b/drivers/media/i2c/imx258.c
+index bc9ee449a..89e3657b8 100644
+--- a/drivers/media/i2c/imx258.c
++++ b/drivers/media/i2c/imx258.c
+@@ -4,6 +4,7 @@
+ #include <linux/acpi.h>
+ #include <linux/clk.h>
+ #include <linux/delay.h>
++#include <linux/gpio/consumer.h>
+ #include <linux/i2c.h>
+ #include <linux/module.h>
+ #include <linux/pm_runtime.h>
+@@ -680,6 +681,7 @@ struct imx258 {
+ 	struct mutex mutex;
+ 
+ 	struct clk *clk;
++	struct gpio_desc *reset_gpio;
+ 	struct regulator_bulk_data supplies[IMX258_NUM_SUPPLIES];
+ };
+ 
+@@ -1128,9 +1130,19 @@ static int imx258_power_on(struct device *dev)
+ 	if (ret) {
+ 		dev_err(dev, "failed to enable clock\n");
+ 		regulator_bulk_disable(IMX258_NUM_SUPPLIES, imx258->supplies);
++		return ret;
+ 	}
+ 
+-	return ret;
++	/*
++	 * Release XCLR only once the supplies and INCK are up, and give the
++	 * sensor time to come out of reset before the first i2c transfer --
++	 * it does not acknowledge its address until then.
++	 */
++	gpiod_set_value_cansleep(imx258->reset_gpio, 0);
++
++	usleep_range(10000, 15000);
++
++	return 0;
+ }
+ 
+ static int imx258_power_off(struct device *dev)
+@@ -1139,6 +1151,7 @@ static int imx258_power_off(struct device *dev)
+ 	struct imx258 *imx258 = to_imx258(sd);
+ 
+ 	clk_disable_unprepare(imx258->clk);
++	gpiod_set_value_cansleep(imx258->reset_gpio, 1);
+ 	regulator_bulk_disable(IMX258_NUM_SUPPLIES, imx258->supplies);
+ 
+ 	return 0;
+@@ -1387,6 +1400,13 @@ static int imx258_probe(struct i2c_client *client)
+ 		return dev_err_probe(imx258->dev, ret,
+ 				     "failed to get regulators\n");
+ 
++	/* Held in reset (XCLR is active low) until imx258_power_on(). */
++	imx258->reset_gpio = devm_gpiod_get_optional(imx258->dev, "reset",
++						     GPIOD_OUT_HIGH);
++	if (IS_ERR(imx258->reset_gpio))
++		return dev_err_probe(imx258->dev, PTR_ERR(imx258->reset_gpio),
++				     "failed to get reset gpio\n");
++
+ 	imx258->clk = devm_v4l2_sensor_clk_get_legacy(imx258->dev, NULL, false,
+ 						      0);
+ 	if (IS_ERR(imx258->clk))

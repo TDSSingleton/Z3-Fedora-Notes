@@ -1,0 +1,24 @@
+[Unit]
+Description=Fold 3: DIAG router over QRTR (gives EFS2 access to the modem's filesystem)
+# See HANDBOOK.md section 35.2.1 (Documentation= only accepts URLs)
+# NOTE: the modem only sends its DIAG control/registration packet to the
+# router instance present when the MODEM subsystem comes up. Restarting
+# diag-router mid-session leaves it unable to route (EFS2 requests time out
+# with no reply) -- it takes a reboot to re-handshake. So: enable the unit and
+# reboot, do not restart it by hand.
+# The modem remoteproc is started by the kernel; rmtfs must be serving its EFS
+# before diag is useful. diag-router publishes the AP-side DIAG services on
+# QRTR, after which the modem publishes MODEM:CMD (service 4097, instance 1).
+Wants=rmtfs.service
+After=rmtfs.service
+
+[Service]
+Type=simple
+WorkingDirectory=/root/diag-build/diag
+ExecStart=/root/diag-build/diag/diag-router
+# /dev/ffs-diag is absent (no USB diag gadget); diag-router logs that and
+# carries on, so a non-zero-ish start is normal. Do not restart in a loop.
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

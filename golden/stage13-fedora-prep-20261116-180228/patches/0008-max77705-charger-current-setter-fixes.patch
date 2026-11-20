@@ -1,0 +1,72 @@
+From: Fold 3 mainline port
+Subject: [PATCH] power: supply: max77705: fix off-by-one input limit and
+ charge-current field overflow
+
+Two bugs in the current setters, both found by decoding the live registers of
+a MAX77705 on a Galaxy Z Fold 3 (q2q) against the vendor driver.
+
+1. CHGIN_LIM is written one step too high. max77705_get_input_current()
+   decodes the field as (regval + 1) * 25 mA, which matches both the vendor
+   driver (max77705_charger.c: CHGIN_LIM = mA/25 - 1) and the hardware: a
+   wall charger limited to 1500 mA reads back 0x3b = 59, and (59+1)*25 = 1500.
+   The setter wrote val/25, so every requested limit came out 25 mA high and
+   did not round-trip through the matching getter.
+
+2. CC_LIM is a 6-bit field (0..63, i.e. up to 3150 mA at the 50 mA step) but
+   was clamped with MAX77705_CURRENT_CHGIN_MAX, the 3200 mA limit belonging to
+   the 7-bit input-limit field. Asking for 3.2 A produced a regval of 64,
+   which does not fit the field.
+
+Give max77705_set_integer() an explicit register offset so the input limit
+encodes as mA/25 - 1, and clamp the charge current with its own maximum. Both
+minima still decode to MAX77705_CURRENT_CHGIN_MIN in the getters.
+
+diff --git a/drivers/power/supply/max77705_charger.c b/drivers/power/supply/max77705_charger.c
+index 63b0b4f0c..9e54b3db8 100644
+--- a/drivers/power/supply/max77705_charger.c
++++ b/drivers/power/supply/max77705_charger.c
+@@ -139,11 +139,11 @@ static int max77705_get_online(struct regmap *regmap, int *val)
+ 
+ static int max77705_set_integer(struct max77705_charger_data *chg, enum max77705_field_idx fidx,
+ 				unsigned int clamp_min, unsigned int clamp_max,
+-				unsigned int div, int val)
++				unsigned int div, unsigned int off, int val)
+ {
+ 	unsigned int regval;
+ 
+-	regval = clamp_val(val, clamp_min, clamp_max) / div;
++	regval = clamp_val(val, clamp_min, clamp_max) / div - off;
+ 
+ 	return regmap_field_write(chg->rfield[fidx], regval);
+ }
+@@ -438,15 +438,15 @@ static int max77705_set_property(struct power_supply *psy,
+ 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
+ 		err = max77705_set_integer(chg, MAX77705_CHG_CC_LIM,
+ 					   MAX77705_CURRENT_CHGIN_MIN,
+-					   MAX77705_CURRENT_CHGIN_MAX,
+-					   MAX77705_CURRENT_CHG_STEP,
++					   MAX77705_CURRENT_CHG_MAX,
++					   MAX77705_CURRENT_CHG_STEP, 0,
+ 					   val->intval);
+ 		break;
+ 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+ 		err = max77705_set_integer(chg, MAX77705_CHG_CHGIN_LIM,
+ 					   MAX77705_CURRENT_CHGIN_MIN,
+ 					   MAX77705_CURRENT_CHGIN_MAX,
+-					   MAX77705_CURRENT_CHGIN_STEP,
++					   MAX77705_CURRENT_CHGIN_STEP, 1,
+ 					   val->intval);
+ 		break;
+ 	default:
+diff --git a/include/linux/power/max77705_charger.h b/include/linux/power/max77705_charger.h
+index b3950ce06..ca54204f3 100644
+--- a/include/linux/power/max77705_charger.h
++++ b/include/linux/power/max77705_charger.h
+@@ -130,6 +130,7 @@
+ #define MAX77705_CURRENT_CHG_STEP	50000
+ #define MAX77705_CURRENT_CHGIN_MIN	100000
+ #define MAX77705_CURRENT_CHGIN_MAX	3200000
++#define MAX77705_CURRENT_CHG_MAX	3150000
+ 
+ enum max77705_field_idx {
+ 	MAX77705_CHGPROT,

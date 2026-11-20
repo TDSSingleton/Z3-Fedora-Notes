@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""Fold 3: the QSCRATCH device-mode VBUS override, which nothing else manages.
+
+dwc3-qcom-legacy.c sets these bits once at probe, for any dr_mode that is not
+"host", and has no role-change hook at all:
+
+    qcom->mode = usb_get_dr_mode(&qcom->dwc3->dev);
+    if (qcom->mode != USB_DR_MODE_HOST)
+        dwc3_qcom_vbus_override_enable(qcom, true);
+
+They are DEVICE-mode inputs -- they tell the controller "a VBUS session is
+valid", which is what makes the gadget generate a connect event. Qualcomm's
+newer glue (dwc3-qcom.c, binding "qcom,snps-dwc3") clears them whenever the
+role leaves device and sets them again on the way back, via .pre_set_role.
+We are on the old two-node binding, so that hook does not exist and the
+override stays stuck ON in host mode.
+
+So the role switch has to manage them from outside the kernel. Both directions
+matter: stuck on, host mode is wrong; left off, the GADGET stops enumerating
+and the USB serial console disappears -- which is the dev channel for this
+whole port, so never leave it cleared.
+
+Order follows upstream's pre_set_role: clear BEFORE switching to host, set
+BEFORE switching back to device.
+
+QSCRATCH base 0x0a6f8800 (the usb_1 glue node's reg in sm8350.dtsi):
+  +0x10 HS_PHY_CTRL  BIT(20) UTMI_OTG_VBUS_VALID, BIT(28) SW_SESSVLD_SEL
+  +0x30 SS_PHY_CTRL  BIT(24) LANE0_PWR_PRESENT
+
+Needs CONFIG_STRICT_DEVMEM=y with IO_STRICT_DEVMEM unset, which is how this
+kernel is built: /dev/mem reaches MMIO but not RAM.
+"""
+import mmap, os, struct, sys
+
+BASE, PAGESZ = 0x0A6F8800, 0x1000
+PG, OFF = BASE & ~(PAGESZ - 1), BASE & (PAGESZ - 1)
+HS_PHY_CTRL, SS_PHY_CTRL = 0x10, 0x30
+UTMI_OTG_VBUS_VALID, SW_SESSVLD_SEL, LANE0_PWR_PRESENT = 1 << 20, 1 << 28, 1 << 24
+HS_BITS, SS_BITS = UTMI_OTG_VBUS_VALID | SW_SESSVLD_SEL, LANE0_PWR_PRESENT
+
+cmd = sys.argv[1] if len(sys.argv) > 1 else "show"
+if cmd not in ("set", "clear", "show"):
+    sys.exit("usage: fold3-qscratch {set|clear|show}")
+
+fd = os.open("/dev/mem", os.O_RDWR | os.O_SYNC)
+try:
+    m = mmap.mmap(fd, PAGESZ, offset=PG)
+except OSError as e:
+    sys.exit(f"fold3-qscratch: cannot map QSCRATCH: {e}")
+
+rd = lambda o: struct.unpack("<I", m[OFF + o:OFF + o + 4])[0]
+def wr(o, v):
+    m[OFF + o:OFF + o + 4] = struct.pack("<I", v)
+
+hs, ss = rd(HS_PHY_CTRL), rd(SS_PHY_CTRL)
+if cmd == "set":
+    wr(HS_PHY_CTRL, hs | HS_BITS)
+    wr(SS_PHY_CTRL, ss | SS_BITS)
+elif cmd == "clear":
+    wr(HS_PHY_CTRL, hs & ~HS_BITS)
+    wr(SS_PHY_CTRL, ss & ~SS_BITS)
+
+hs, ss = rd(HS_PHY_CTRL), rd(SS_PHY_CTRL)
+on = (hs & HS_BITS) == HS_BITS and (ss & SS_BITS) == SS_BITS
+off = not (hs & HS_BITS) and not (ss & SS_BITS)
+print(f"HS_PHY_CTRL 0x{hs:08x}  SS_PHY_CTRL 0x{ss:08x}  "
+      f"override {'ON (device mode)' if on else 'OFF (host mode)' if off else 'MIXED'}")
+m.close(); os.close(fd)

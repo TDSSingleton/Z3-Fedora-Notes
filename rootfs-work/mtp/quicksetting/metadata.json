@@ -1,0 +1,15 @@
+{
+    "KPackageStructure": "KPackage/GenericQML",
+    "KPlugin": {
+        "Id": "org.kde.plasma.quicksetting.fold3mtp",
+        "Name": "File transfer",
+        "Description": "Share files with a computer over the USB cable (MTP)",
+        "Icon": "drive-harddisk",
+        "License": "LGPL-2.0-or-later",
+        "Authors": [
+            {
+                "Name": "Fold 3 mainline port"
+            }
+        ]
+    }
+}

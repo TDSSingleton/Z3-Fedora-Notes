@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Samsung S2MPB02 sub-PMIC -- BUCK1/BUCK2 only.
+ * Samsung S2MPB02 sub-PMIC -- the subset of rails this board describes.
  *
  * Minimal mainline-style port of the vendor driver
  * (SM-F926B drivers/regulator/s2mpb02/s2mpb02-regulator.c), written for the
@@ -92,14 +92,30 @@ static const struct regulator_ops s2mpb02_buck_ops = {
  * all eighteen vendor voltages: only 0x1e + (n - 1) fits).
  * LDO1-5 step 12.5 mV, LDO6-18 step 25 mV, both from 600 mV.
  *
- * Only LDO9 is described: on the "sub" chip it is "subsensor_vdd" (1.8 V),
- * the supply of the LSM6DSO IMUs. XBL leaves it off, Android's PIL node holds
- * it, and without it the IMU never enumerates on the SLPI.
+ * The descriptor table below is shared by BOTH instances of the chip; which
+ * rails actually appear is decided per-instance by what that node's
+ * "regulators" subnode describes, so a rail listed here but left out of the
+ * DT is never registered and never touched. That is deliberate: the
+ * bootloader leaves several LDOs on for the panel, and an unclaimed regulator
+ * the core does not know about cannot be turned off by regulator_late_cleanup.
+ *
+ * Hence the same LDO number means different things on the two chips:
+ *   LDO4   main: cam_vdig, rear ultrawide IMX258        1.2 V
+ *   LDO6   main: cam_vio, rear ultrawide                1.8 V
+ *          sub:  panel_vddr_sub, cover panel            1.7 V
+ *   LDO8   main: sensor_dvdd, fold hall AK09970         1.8 V
+ *   LDO9   sub:  subsensor_vdd, LSM6DSO IMUs            1.8 V
+ *          (XBL leaves it off and Android's PIL node holds it; without it the
+ *           IMU never enumerates on the SLPI)
+ *   LDO10  sub:  panel_vdd3_sub, cover panel            1.8 V
+ *   LDO12  main: cam_vana, rear ultrawide               2.7 V
+ *   LDO15  sub:  panel_vci_sub, cover panel             3.0 V
  */
 #define S2MPB02_REG_L1CTRL		0x1e
 #define S2MPB02_LDO_ENABLE_MASK		0x80
 #define S2MPB02_LDO_VSEL_MASK		0x7f
 #define S2MPB02_LDO_MIN_UV		600000
+#define S2MPB02_LDO_STEP1_UV		12500
 #define S2MPB02_LDO_STEP2_UV		25000
 #define S2MPB02_LDO_ENABLE_TIME_US	180
 
@@ -113,7 +129,7 @@ static const struct regulator_ops s2mpb02_ldo_ops = {
 	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
 };
 
-#define S2MPB02_LDO_STEP2(_n) {						\
+#define S2MPB02_LDO(_n, _step) {					\
 	.name		= "ldo" #_n,					\
 	.of_match	= of_match_ptr("ldo" #_n),			\
 	.regulators_node = of_match_ptr("regulators"),			\
@@ -122,7 +138,7 @@ static const struct regulator_ops s2mpb02_ldo_ops = {
 	.type		= REGULATOR_VOLTAGE,				\
 	.owner		= THIS_MODULE,					\
 	.min_uV		= S2MPB02_LDO_MIN_UV,				\
-	.uV_step	= S2MPB02_LDO_STEP2_UV,				\
+	.uV_step	= (_step),					\
 	.n_voltages	= S2MPB02_LDO_VSEL_MASK + 1,			\
 	.vsel_reg	= S2MPB02_REG_L1CTRL + (_n) - 1,		\
 	.vsel_mask	= S2MPB02_LDO_VSEL_MASK,			\
@@ -131,13 +147,23 @@ static const struct regulator_ops s2mpb02_ldo_ops = {
 	.enable_time	= S2MPB02_LDO_ENABLE_TIME_US,			\
 }
 
+/* LDO1-5 step 12.5 mV; LDO6-18 step 25 mV. Mixing them up sets a wrong
+ * voltage silently -- the selector is accepted either way.
+ */
+#define S2MPB02_LDO_STEP1(_n)	S2MPB02_LDO(_n, S2MPB02_LDO_STEP1_UV)
+#define S2MPB02_LDO_STEP2(_n)	S2MPB02_LDO(_n, S2MPB02_LDO_STEP2_UV)
+
 static const struct regulator_desc s2mpb02_regulators[] = {
 	S2MPB02_BUCK(1, S2MPB02_REG_B1CTRL1, S2MPB02_REG_B1CTRL2),
 	S2MPB02_BUCK(2, S2MPB02_REG_B2CTRL1, S2MPB02_REG_B2CTRL2),
-	S2MPB02_LDO_STEP2(6),	/* sub: panel_vddr_sub, cover panel 1.7 V */
+	S2MPB02_LDO_STEP1(4),	/* main: cam_vdig, rear ultrawide 1.2 V */
+	S2MPB02_LDO_STEP2(6),	/* sub: panel_vddr_sub, cover panel 1.7 V;
+				 * main: cam_vio, rear ultrawide 1.8 V
+				 */
 	S2MPB02_LDO_STEP2(8),	/* main: sensor dvdd, fold hall AK09970 1.8 V */
 	S2MPB02_LDO_STEP2(9),	/* sub: subsensor_vdd, IMUs 1.8 V */
 	S2MPB02_LDO_STEP2(10),	/* sub: panel_vdd3_sub, cover panel 1.8 V */
+	S2MPB02_LDO_STEP2(12),	/* main: cam_vana, rear ultrawide 2.7 V */
 	S2MPB02_LDO_STEP2(15),	/* sub: panel_vci_sub, cover panel 3.0 V */
 };
 

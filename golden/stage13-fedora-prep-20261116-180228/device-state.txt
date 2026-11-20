@@ -1,0 +1,32 @@
+## uname
+Linux 192.168.11.131 7.2.15-q2q #91 SMP PREEMPT Mon Nov 16 17:39:39 +00 2026 aarch64 GNU/Linux
+## fold3-boot status
+running: chainloaded kernel 7.2.15-q2q
+default: (embedded)   [failed earlier: 7.2.15-q2q]
+next:    -
+pending: -
+entries:
+  7.2.15-q2q  50M
+  curtree  51M
+  nowdog  51M
+  usbgadget  51M
+## /lib/modules
+7.2.11-300.fc45.aarch64
+7.2.15-q2q
+7.2.15-q2q.old
+7.2.15-q2q.stage7
+## extra modules
+ak09970-fold.ko
+fts9cu80f.ko
+panel-samsung-s6e3fab.ko
+s2mpb02-regulator.ko
+## fedora kernels installed
+kernel-core-7.2.11-300.fc45.aarch64
+## dnf offers
+Available packages
+kernel.aarch64 7.3.3-300.fc45 updates
+## entry shas
+  7.2.15-q2q a2fbf12dbea6c5b7
+  curtree edb65ab01daa508d
+  nowdog d8e2f4bad8e8029f
+  usbgadget 16cd208e555cd4df

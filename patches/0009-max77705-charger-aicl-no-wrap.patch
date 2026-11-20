@@ -1,0 +1,37 @@
+From: Fold 3 mainline port
+Subject: [PATCH] power: supply: max77705: do not wrap the input limit to
+ maximum in the AICL loop
+
+max77705_aicl_irq() walks CHGIN_LIM down one step per 100 ms for as long as
+the hardware reports it is still limiting. regval is unsigned and the loop has
+no lower bound, so on a supply weak enough to keep AICL asserted all the way
+down, the decrement at regval == 0 writes 0xffffffff. regmap_field_write()
+masks that to the 7-bit field, giving 0x7f -- the input limit jumps from its
+minimum straight to the maximum of 3200 mA, which is the exact opposite of
+what the loop is trying to do, and then AICL asserts again and it oscillates.
+
+Observed on a Galaxy Z Fold 3 (q2q), where a weak USB hub port had AICL
+actively walking the limit down from 1500 mA within seconds of the driver
+binding, so this path is not theoretical.
+
+Stop at the lowest limit the field can express, which is also the value
+max77705_get_input_current() reports as MAX77705_CURRENT_CHGIN_MIN.
+
+--- a/drivers/power/supply/max77705_charger.c
++++ b/drivers/power/supply/max77705_charger.c
+@@ -57,6 +57,15 @@
+ 		if (err < 0)
+ 			return IRQ_HANDLED;
+ 
++		/*
++		 * Stop at the lowest limit the field can express rather than
++		 * wrapping: CHGIN_LIM is 7 bits, so decrementing past zero
++		 * would write 0x7f and jump the input limit to its maximum --
++		 * the opposite of what this loop is for.
++		 */
++		if (regval <= MAX77705_CURRENT_CHGIN_MIN / MAX77705_CURRENT_CHGIN_STEP - 1)
++			break;
++
+ 		regval--;
+ 
+ 		err = regmap_field_write(chg->rfield[MAX77705_CHG_CHGIN_LIM], regval);

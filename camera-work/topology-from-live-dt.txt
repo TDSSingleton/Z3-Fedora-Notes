@@ -1,0 +1,176 @@
+==============================================================================
+Fold 3 (SM-F926B / q2q) camera topology -- from the LIVE stock device tree
+==============================================================================
+
+### qcom,actuator0
+  parent bus      : soc/qcom,cci1
+  cell-index      : 0
+  cci-master      : 1
+  slave-addr      : 0x18  (7-bit 0x0c)
+  rails:
+    cam_vaf          -> s2mpb02-ldo13          2.800 V                5000 uA
+    cam_vio          -> s2mpb02-ldo7           1.800 V                5000 uA
+  power sequence (in order):
+    1. cam_vaf          val=1 delay=1 ms
+    2. cam_vio          val=1 delay=12 ms
+
+### qcom,actuator3
+  parent bus      : soc/qcom,cci1
+  cell-index      : 3
+  cci-master      : 1
+  slave-addr      : 0x1e  (7-bit 0x0f)
+  rails:
+    cam_vaf          -> regulator-pm8350c-l7   2.800 V                5000 uA
+    cam_vio          -> s2mpb02-ldo7           1.800 V                5000 uA
+  power sequence (in order):
+    1. cam_vaf          val=1 delay=1 ms
+    2. cam_vio          val=1 delay=12 ms
+
+### qcom,cam-sensor0
+  parent bus      : soc/qcom,cci0
+  cell-index      : 0
+  csiphy-sd-index : 0
+  cci-master      : 0
+  rails:
+    cam_vdig         -> s2mpb02-ldo3           1.100 V                200000 uA
+    cam_vio          -> s2mpb02-ldo7           1.800 V                200000 uA
+    cam_vana         -> s2mpb02-ldo14          2.825 V                5000 uA
+    cam_clk          -> qcom,gdsc@ad0c120      (clock, not a rail)   
+    cam_v_custom1    -> s2mpb02-ldo1           1.100 V                200000 uA
+    cam_v_custom2    -> s2mpb02-buck2          1.300 V                200000 uA
+  mclk rates      : 19.2 MHz
+
+### qcom,cam-sensor1
+  parent bus      : soc/qcom,cci0
+  cell-index      : 1
+  csiphy-sd-index : 5
+  cci-master      : 1
+  rails:
+    cam_vdig         -> s2mpb02-ldo5           1.050 V                200000 uA
+    cam_vio          -> s2mpb02-ldo9           1.800 V                200000 uA
+    cam_vana         -> s2mpb02-ldo15          2.800 V                200000 uA
+    cam_clk          -> qcom,gdsc@ad0c120      (clock, not a rail)   
+    cam_v_custom1    -> s2mpb02-buck2          1.300 V                200000 uA
+  mclk rates      : 19.2 MHz
+
+### qcom,cam-sensor11
+  parent bus      : soc/i2c@998000
+  cell-index      : 11
+  csiphy-sd-index : 3
+  reg             : 0x11
+  rails:
+    cam_vdig         -> s2mpb02-ldo3           1.050 V                200000 uA
+    cam_vio          -> s2mpb02-ldo7           1.800 V                200000 uA
+    cam_vana         -> s2mpb02-ldo13          2.800 V                200000 uA
+    cam_clk          -> qcom,gdsc@ad0c120      (clock, not a rail)   
+  mclk rates      : 24 MHz
+
+### qcom,cam-sensor12
+  parent bus      : soc/qcom,cci0
+  cell-index      : 12
+  csiphy-sd-index : 5
+  cci-master      : 1
+  rails:
+    cam_vdig         -> s2mpb02-ldo5           1.050 V                200000 uA
+    cam_vio          -> s2mpb02-ldo9           1.800 V                200000 uA
+    cam_vana         -> s2mpb02-ldo15          2.800 V                200000 uA
+    cam_clk          -> qcom,gdsc@ad0c120      (clock, not a rail)   
+    cam_v_custom1    -> s2mpb02-buck2          1.300 V                200000 uA
+  mclk rates      : 19.2 MHz
+
+### qcom,cam-sensor13
+  parent bus      : soc/i2c@998000
+  cell-index      : 13
+  csiphy-sd-index : 3
+  reg             : 0x13
+  rails:
+    cam_vdig         -> s2mpb02-ldo3           1.050 V                200000 uA
+    cam_vio          -> s2mpb02-ldo7           1.800 V                200000 uA
+    cam_vana         -> s2mpb02-ldo13          2.800 V                200000 uA
+    cam_clk          -> qcom,gdsc@ad0c120      (clock, not a rail)   
+  mclk rates      : 24 MHz
+
+### qcom,cam-sensor2
+  parent bus      : soc/qcom,cci1
+  cell-index      : 2
+  csiphy-sd-index : 4
+  cci-master      : 0
+  rails:
+    cam_vdig         -> s2mpb02-ldo4           1.200 V                200000 uA
+    cam_vio          -> s2mpb02-ldo6           1.800 V                200000 uA
+    cam_vana         -> s2mpb02-ldo12          2.700 V                5000 uA
+    cam_clk          -> qcom,gdsc@ad0c120      (clock, not a rail)   
+    cam_v_custom1    -> s2mpb02-buck2          1.300 V                200000 uA
+  mclk rates      : 19.2 MHz
+
+### qcom,cam-sensor3
+  parent bus      : soc/i2c@a8c000
+  cell-index      : 3
+  csiphy-sd-index : 2
+  reg             : 0x5a
+  rails:
+    cam_vio          -> s2mpb02-ldo6           1.800 V                200000 uA
+    cam_vana         -> s2mpb02-ldo17          2.800 V                5000 uA
+    cam_clk          -> qcom,gdsc@ad0c120      (clock, not a rail)   
+    cam_v_custom1    -> s2mpb02-buck2          1.300 V                200000 uA
+  mclk rates      : 19.2 MHz
+
+### qcom,camera-flash0
+  parent bus      : soc
+  cell-index      : 0
+
+### qcom,camera-flash2
+  parent bus      : soc
+  cell-index      : 2
+
+### qcom,camera-flash3
+  parent bus      : soc
+  cell-index      : 3
+
+### qcom,eeprom0
+  parent bus      : soc/qcom,cci1
+  cell-index      : 0
+  cci-master      : 1
+  slave-addr      : 0xa0  (7-bit 0x50)
+  rails:
+    cam_vio          -> s2mpb02-ldo7           1.800 V                120000 uA
+    cam_v_custom1    -> s2mpb02-ldo6           1.800 V                120000 uA
+
+### qcom,eeprom1
+  parent bus      : soc/qcom,cci0
+  cell-index      : 1
+  cci-master      : 1
+  slave-addr      : 0xa0  (7-bit 0x50)
+  rails:
+    cam_vio          -> s2mpb02-ldo9           1.800 V                200000 uA
+
+### qcom,eeprom11
+  parent bus      : soc/i2c@998000
+  cell-index      : 11
+  slave-addr      : 0xa2  (7-bit 0x51)
+  rails:
+    cam_vio          -> s2mpb02-ldo7           1.800 V                200000 uA
+
+### qcom,eeprom2
+  parent bus      : soc/qcom,cci1
+  cell-index      : 2
+  cci-master      : 0
+  slave-addr      : 0xa2  (7-bit 0x51)
+  rails:
+    cam_vio          -> s2mpb02-ldo6           1.800 V                120000 uA
+
+### qcom,ois@51
+  parent bus      : soc/i2c@988000
+  cell-index      : 0
+  slave-addr      : 0xc4  (7-bit 0x62)
+  rails:
+    cam_vaf          -> s2mpb02-ldo13          2.800 V                5000 uA
+    cam_v_custom1    -> regulator-pm8350c-l7   2.800 V                5000 uA
+    cam_vio          -> s2mpb02-ldo10          1.800 V                5000 uA
+    cam_vdig         -> s2mpb02-ldo18          2.800 V                5000 uA
+  power sequence (in order):
+    1. cam_vdig         val=1 delay=1 ms
+    2. cam_vaf          val=1 delay=1 ms
+    3. cam_v_custom1    val=1 delay=1 ms
+    4. cam_vio          val=1 delay=1 ms
+    5. cam_reset        val=1 delay=14 ms

@@ -73,7 +73,7 @@ first.
 | Video codec | `iris` | ✅ |
 | Buses | `qupv3_id_0/1/2`, `i2c0..19`, `spi0..19`, `uart2/6/18` | ✅ |
 | Crypto, RNG, SMMU, PDC, IPCC, tsens | | ✅ |
-| Camera (`camss`) | — | ❌ absent (out of scope) |
+| Camera (`camss`) | `qcom,sm8350-camss` | ❌ absent — but SC8280XP is the **same CAMSS generation** (CSIPHY v1.2.3, CSID ~580, neighbouring register bases) and mainline drives it with `csid_ops_gen2` + `vfe_ops_170`, i.e. ops that already exist. Needs a resource table, a `camcc` port and DT — not new hardware ops |
 
 `dpu_7_0_sm8350.h` confirms the display hardware the DPU driver knows about:
 **4 DSC blocks and 4 INTFs** (`intf_0` DP, `intf_1` DSI0, `intf_2` DSI1, `intf_3` DP MST).

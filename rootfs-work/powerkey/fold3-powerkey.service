@@ -1,0 +1,35 @@
+[Unit]
+Description=Fold 3: power button turns the screen off (no suspend)
+Documentation=file:///usr/share/doc/fold3/HANDBOOK.md
+# NO "After=graphical.target" HERE.
+#
+# WantedBy= below installs this into multi-user.target.wants, and systemd adds
+# an implicit Before=multi-user.target for that. Ordering it after
+# graphical.target therefore closes a loop -- graphical.target is itself after
+# multi-user.target -- and systemd resolves the loop by DELETING this job:
+#
+#   multi-user.target: Found ordering cycle: fold3-powerkey.service/start
+#     after graphical.target/start after multi-user.target/start
+#     - after fold3-powerkey.service
+#   multi-user.target: Job fold3-powerkey.service/start deleted to break
+#     ordering cycle starting with multi-user.target/start
+#
+# The unit stays "enabled" and simply never runs, with an empty journal. It
+# cost a boot to notice, because the feature had been tested by starting the
+# service by hand.
+#
+# No ordering is needed anyway: the watcher retries for the input device for
+# 30s, and it only needs Wayland when a key is actually pressed.
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/fold3-powerkey
+Restart=always
+RestartSec=5
+# Runs as root: /dev/input/event* are root:input with no uaccess ACL, so the
+# session user cannot open them. It drops to the session user only to talk to
+# Wayland, via fold3-dpms.
+User=root
+
+[Install]
+WantedBy=multi-user.target

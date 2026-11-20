@@ -3,7 +3,7 @@
 # and uniLoader trees with our changes applied, the busybox source, and the
 # small static helpers that go into the initramfs.
 #
-#   ./tools/setup-sources.sh [all|kernel|uniloader|busybox|lrzsz|kexec-load]...
+#   ./tools/setup-sources.sh [all|kernel|uniloader|busybox|lrzsz|kexec-load|diag]...
 #
 # Each step is skipped when its result already exists, so it is safe to re-run.
 # Pinned versions (override the URLs to use a local mirror):
@@ -42,10 +42,17 @@ do_kernel(){
 			say "kernel: applied $(basename "$p")"
 		done
 	fi
-	# The inner panel driver is ours and not upstream; panel-work/ is the
-	# source of truth. (The board DTS is installed by build-kernel.sh.)
-	cp "$ROOT/panel-work/panel-samsung-s6e3xa2.c" "$T/drivers/gpu/drm/panel/"
-	say "kernel: installed panel-samsung-s6e3xa2.c"
+	# The inner panel driver is NO LONGER installed into the tree. It is
+	# built out-of-tree from panel-work/ (like cover-work/), so there is
+	# nothing to copy and patches/0007 is gone. See docs/18.
+	# (The board DTS is still installed by build-kernel.sh.)
+	# Same deal for the camera clock controller: ours, generated, and its
+	# Kconfig/Makefile hookup is a tree edit rather than a patch file. It was
+	# missing from here until 2026-11-16, so a fresh checkout built a kernel
+	# with no camera clocks and nothing said so. install-camcc.sh is
+	# idempotent.
+	"$ROOT/camera-work/install-camcc.sh" "$T" | sed 's/^/   /'
+	say "kernel: installed camcc-sm8350"
 }
 
 do_uniloader(){
@@ -121,15 +128,38 @@ do_kexec_load(){
 	say "kexec-load: built $OUT/kexec-load"
 }
 
+do_diag(){
+	# Upstream trees for DIAG/EFS2 access to the modem's filesystem over QRTR
+	# (HANDBOOK 35.2.1). diag-router is built ON the phone: the host's
+	# aarch64-linux-gnu-gcc is the kernel-only toolchain with no libc sysroot,
+	# and the phone has gcc + libqrtr.so.1 but no libqrtr.h -- which is why the
+	# qrtr checkout is needed (for include/libqrtr.h). QCSuper is not built; it
+	# is the reference for the EFS2 packet layouts.
+	mkdir -p "$ROOT/modem-work"
+	for spec in "diag https://github.com/andersson/diag.git" \
+	            "qrtr https://github.com/andersson/qrtr.git" \
+	            "qcsuper https://github.com/P1sec/QCSuper.git"; do
+		set -- $spec
+		if [ -d "$ROOT/modem-work/$1/.git" ]; then
+			say "diag: $1 already present"
+		else
+			git clone --depth 1 "$2" "$ROOT/modem-work/$1"
+			say "diag: cloned $1"
+		fi
+	done
+	say "diag: now build on the PHONE -- see HANDBOOK 35.2.1 for the make line"
+}
+
 [ $# -gt 0 ] || set -- all
 for step in "$@"; do
 	case "$step" in
-		all)        do_kernel; do_uniloader; do_busybox; do_lrzsz; do_kexec_load ;;
+		all)        do_kernel; do_uniloader; do_busybox; do_lrzsz; do_kexec_load; do_diag ;;
 		kernel)     do_kernel ;;
 		uniloader)  do_uniloader ;;
 		busybox)    do_busybox ;;
 		lrzsz)      do_lrzsz ;;
 		kexec-load) do_kexec_load ;;
+		diag)       do_diag ;;
 		*) echo "!! unknown step: $step"; exit 1 ;;
 	esac
 done

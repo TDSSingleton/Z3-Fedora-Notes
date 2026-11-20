@@ -1,0 +1,24 @@
+#!/bin/bash
+# fold3-boot: manage which kernel the Fold 3 chainloader boots.
+#   fold3-boot status
+#   fold3-boot next <entry>       boot <entry> once, then go back to the default
+#   fold3-boot default <entry>    boot <entry> every time (falls back by itself if it fails to come up)
+#   fold3-boot embedded           always boot the kernel inside boot.img
+B=/boot/fold3
+case "$1" in
+status)
+	# journalctl -k, NOT dmesg: the ring buffer wraps within minutes here
+	# because the SLPI re-pulses its handover several times a second, so by
+	# the time anyone runs this the marker is long gone and every chainloaded
+	# boot misreports itself as "embedded".
+	if journalctl -k -b --no-pager 2>/dev/null | grep -q "CHAINLOADED"; then echo "running: chainloaded kernel $(uname -r)"; else echo "running: embedded kernel $(uname -r) (from boot.img)"; fi
+	echo "default: $(cat $B/default 2>/dev/null || echo '(embedded)')$( [ -f $B/default.failed ] && echo "   [failed earlier: $(cat $B/default.failed)]")"
+	echo "next:    $(cat $B/next 2>/dev/null || echo -)"
+	echo "pending: $(cat $B/pending 2>/dev/null || echo -)"
+	echo "entries:"; for e in $B/entries/*/; do [ -f "$e/Image" ] && echo "  $(basename $e)  $(du -sh $e | cut -f1)"; done ;;
+next|default)
+	[ -f "$B/entries/$2/Image" ] || { echo "no such entry: $2"; exit 1; }
+	echo "$2" > $B/$1; [ "$1" = default ] && rm -f $B/default.failed $B/pending; sync; echo "$1 -> $2" ;;
+embedded) rm -f $B/default $B/next $B/pending; sync; echo "default -> embedded kernel" ;;
+*) sed -n 2,6p "$0"; exit 2 ;;
+esac

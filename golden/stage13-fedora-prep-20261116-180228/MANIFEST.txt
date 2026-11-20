@@ -1,0 +1,56 @@
+stage13: the state that worked, saved 2026-11-16 BEFORE the Fedora-payload
+refactor (moving our drivers out-of-tree, dropping patches/0007, changing
+init-rootfs.sh and fold3-boot). Nothing here is new work -- it is the restore
+point.
+
+date: 2026-11-16T18:03:57+00:00
+
+RESTORE POINT -- the loader actually on the phone
+  q2q-boot-FLASHED-20261116.img   dd of /dev/sda19 (= by-partlabel/boot),
+                                  first 64 MiB of a 768 MiB partition
+  sha256 (64 MiB dump): 547f0c42cda12a20acbbc0657dd811652194c33d9f484fa6441d6058e87e632e
+  Byte-identical to images/q2q-stage1-boot.img over its first 52809728 bytes,
+  so that file is the same loader; this dump is the proof it is what is
+  flashed. Contains uniLoader, kernel release 7.2.15-q2q, and patch 0001
+  (2 SECWDOG strings). The Android-looking cmdline in its header is inherited
+  from the stock image and is irrelevant: our kernels set CMDLINE_FORCE.
+
+PAYLOAD KERNELS (both built from the tree as it stood on 2026-11-16 18:00)
+  Image-curtree   current tree WITH patch 0001.  sha256 edb65ab01daa508d...
+                  NOT booted. Strictly newer than the flashed loader's kernel.
+  Image-nowdog    same tree, patch 0001 REVERTED. sha256 d8e2f4bad8e8029f...
+                  BOOTED and verified: graphical.target 18.3 s, both DSI
+                  panels, WiFi, sshd, SECWDOG count 0. This is the proof that
+                  the loader's TrustZone watchdog disable survives kexec.
+                  It is a TEST ARTIFACT, not a kernel to keep.
+
+SOURCES as they were before the refactor
+  patches/0001..0012            the full pre-refactor patch set. 0007 (panel
+                                Kconfig/Makefile hookup) is about to be deleted
+                                because the panel moves out-of-tree -- this is
+                                the only copy of it afterwards.
+  panel-samsung-s6e3xa2.c       inner panel, at this point copied INTO the tree
+  camcc-sm8350.c                camera clocks, at this point copied INTO the tree
+  s2mpb02-regulator.c, ak09970-fold.c, panel-samsung-s6e3fab.c, fts9cu80f.c
+                                already out-of-tree, unchanged by the refactor
+  q2q-stage1.config             loader/payload config fragment
+  sm8350-samsung-q2q.dts        board DTS (unchanged by the refactor; the
+                                payload reuses the loader's DT over kexec)
+  init-rootfs.sh                loader init BEFORE it learns to load modules
+  fold3-boot                    BEFORE the "refuse a default with no modules" guard
+  initramfs{,-chained}.cpio.gz  loader initramfs and the chained variant
+
+REFERENCE
+  fedora-7.2.11-300.fc45.config Fedora's own aarch64 config, audited clean by
+                                tools/fedora-kernel-audit.sh (no blockers)
+  device-state.txt              phone state at snapshot time
+
+HOW TO GO BACK
+  Loader:  flash q2q-boot-FLASHED-20261116.img to boot (sda19) -- or do nothing,
+           it is already there and this refactor does not touch it.
+  Payload: fold3-boot embedded  (clears default/next/pending and boots the
+           kernel inside boot.img). The device's default was never changed
+           during this work and is already the embedded kernel.
+  Sources: restore patches/0007 from patches/ here and put
+           panel-samsung-s6e3xa2.c / camcc-sm8350.c back under the
+           setup-sources.sh + install-camcc.sh path.

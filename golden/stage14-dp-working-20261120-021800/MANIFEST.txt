@@ -1,0 +1,60 @@
+stage14 -- DisplayPort over USB-C working, 1080p, automatic on attach
+=====================================================================
+Taken 2026-11-20, after the first session in which the TV showed a correct
+picture. This is the restore point for "external display works".
+
+WHAT WORKS HERE
+  * DP alt mode over USB-C on a powered Nintendo Switch dock (VID 0x057e,
+    PID 0x2003): full VDM handshake, pin assignment D, 2 lanes.
+  * Link trains at HBR2 -- rate = 540000, bw_code = 20, and v_level = 0 with
+    p_level = 0, i.e. at the LOWEST drive strength. The link is not straining.
+  * 1920x1080 (at 50 Hz; the TV's EDID offers no 1080p60) with KWin driving
+    the TV as the primary output and the inner panel extended beside it.
+    Both DSI panels stay live.
+  * Automatic: plug the dock in and the picture appears with no commands.
+    Measured 2 s from CC attach to "DP IS UP". Works at boot too (coldplug).
+  * Charging from the dock continues while DP is up, at 500 mA.
+
+THE ONE THING THAT MADE IT WORK
+  Waiting for the SINK's own HPD (HPD_State, bit 7 of a DP Status Update VDM)
+  instead of forcing our software HPD. Forcing ours while the sink reported 0
+  made msm_dp train a link into a dock whose HDMI side was not ready; the TV
+  then showed its own blue no-signal screen. That blue screen was blamed on
+  widebus, on DPU mixer staging and on Plasma for an entire session. No kernel
+  change was needed -- only the order of operations.
+
+FILES
+  q2q-boot-FLASHED-20261120.img  exactly what was written to /dev/sda19;
+                                 sha256 c8f2a5356b0464a6fd7f96018bf9178a
+                                 899b3d699caea885004f661f3ce4b56a
+  sm8350-samsung-q2q.dts         link-frequencies now RBR/HBR/HBR2; the HPD
+                                 bridge node; usb_1_qmpphy + mdss_dp enabled
+  q2q-stage1.config              DRM_MSM_DP, PHY_QCOM_QMP_COMBO,
+                                 DRM_AUX_HPD_BRIDGE, DRM_FOLD3_DP_HPD
+  fold3-dp-hpd.c                 the terminating HPD bridge. MUST be built in:
+                                 a missing bridge breaks the chain and takes
+                                 BOTH DSI panels down with it, not just DP.
+  patches/0013-*.patch           the same, as a patch
+  dp/fold3-pd                    the MAX77705 PD/VDM layer. Idempotent: skips
+                                 Enter Mode / DP Configure when a mode is up.
+  dp/fold3-dp                    the four-layer orchestrator; gates on the
+                                 sink's HPD, --wait N to hold for the display
+  dp/fold3-dp-auto + .rules      automatic bring-up, triggered by the
+                      + .service max77705-charger power_supply uevent
+  dp/fold3-otg                   now has a `dock` mode: host while something
+                                 else feeds VBUS. UNTESTED as of this snapshot.
+
+TO RESTORE
+  scp q2q-boot-FLASHED-20261120.img root@<ip>:/root/boot-new.img
+  ssh root@<ip> 'S=$(stat -c%s /root/boot-new.img);
+    dd if=/root/boot-new.img of=/dev/sda19 bs=4M conv=fsync; sync
+    echo 3 > /proc/sys/vm/drop_caches
+    head -c $S /dev/sda19 | sha256sum'   # must match the sha256 above
+  then copy dp/* into /usr/local/bin (and the .rules/.service to their dirs)
+
+ORDER OF OPERATIONS THAT MATTERS ON THE HARDWARE
+  The dock's power brick goes in BEFORE the phone. A dock with no brick
+  presents Rd and asks the PHONE to power IT (CCStat = 2 = cc_SOURCE,
+  VBUSDet = 0), and then Discover Identity ACKs with an EMPTY VDM, which
+  looks exactly like a broken adapter. The dock latches this at attach and
+  does not re-evaluate when the brick arrives later -- replug the phone.

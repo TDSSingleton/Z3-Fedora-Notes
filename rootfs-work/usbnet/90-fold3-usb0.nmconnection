@@ -1,0 +1,26 @@
+# NCM is part of the composite gadget, so a usb0 appears whenever the cable is
+# in. Without a profile NetworkManager runs DHCP on it forever and logs about
+# it every few seconds. Static, no default route, no DNS: it is a second way
+# in when WiFi is down, not a route to the internet.
+#
+# Install to /etc/NetworkManager/system-connections/ with mode 0600.
+# The host side needs the matching address, e.g.
+#   sudo ip addr add 192.168.42.2/24 dev <iface> && sudo ip link set <iface> up
+# then: ssh root@192.168.42.1
+[connection]
+id=fold3-usb0
+type=ethernet
+interface-name=usb0
+autoconnect=true
+autoconnect-priority=-10
+
+[ethernet]
+
+[ipv4]
+method=manual
+address1=192.168.42.1/24
+never-default=true
+ignore-auto-dns=true
+
+[ipv6]
+method=ignore

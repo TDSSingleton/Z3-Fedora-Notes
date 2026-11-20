@@ -1,0 +1,803 @@
+#!/usr/bin/python3
+"""Fold 3: drive the MAX77705's USB-PD engine from userspace. Runs ON the device.
+
+WHY THIS EXISTS
+---------------
+The Fold 3 has no mainline Type-C driver. The MAX77705's CC/PD block (i2c addr
+0x25, separate from the MFD at 0x66 and the charger at 0x69) runs a complete
+PD stack in its own firmware (UIC_FW_REV 0x65.18 on this unit) and is driven
+entirely through an "opcode mailbox":
+
+    write  reg 0x21 = opcode, 0x22.. = payload, then reg 0x41 = 0x00 to commit
+    wait   UIC_INT (0x02) bit 7 APCmdResI
+    read   reg 0x51 = opcode echo, 0x52.. = response
+
+That is the whole protocol. Everything Samsung's driver does -- including the
+DisplayPort alt-mode handshake -- is opcodes on this mailbox, so all of it can
+be reproduced from userspace with nothing loaded. That is the point of this
+tool: prove the PD path and learn what the attached dock actually offers
+BEFORE touching the display stack, which currently works and must keep working.
+
+Reference: SM-F926B/Kernel/drivers/usb/typec/maxim/max77705_{usbc,alternate}.c
+and include/linux/usb/typec/maxim/max77705{,_alternate}.h in this repo. Every
+opcode number, bitfield and payload layout below is read out of that source,
+not guessed.
+
+THE DP SEQUENCE, AS SAMSUNG'S DRIVER ACTUALLY RUNS IT
+-----------------------------------------------------
+The chip does not negotiate alt mode by itself. It transports VDMs and raises
+VDM_INT (0x05) to say "a response arrived"; the AP then reads the response
+(opcode 0x4b + a sub-id) and sends the next request (opcode 0x48 + a VDM).
+So the AP owns the state machine and the chip owns the wire timing:
+
+    SET_ALTERNATEMODE(0x3)      enable SRCCAP + VDM handling   <-- without this
+                                                                   the firmware
+                                                                   ignores VDMs
+    [chip sends Discover Identity on attach, raises VDM_INT b1]
+    read 0x4b/0x01 -> identity  -> send Discover SVIDs  (0x48)
+    read 0x4b/0x02 -> SVIDs     -> send Discover Modes  (0x48)
+    read 0x4b/0x03 -> DP caps   -> send Enter Mode      (0x48)
+    read 0x4b/0x04 -> Enter ACK -> (chip asks for DP Status)
+    read 0x4b/0x10 -> DP Status -> send DP Configure    (0x48)
+    read 0x4b/0x11 -> Cfg ACK   -> lanes are live, HPD arrives as Attention
+
+READ-ONLY BY DEFAULT. `status`, `ints`, `watch` and `dump` only read. The
+subcommands that write are `altmode`, `vdm`, `dp`, `ccctrl1` and `drswap`, and
+the opcode whitelist below refuses anything outside the set this tool needs --
+in particular every firmware-update and factory-test opcode.
+
+DO NOT RUN TWO i2c POLLERS AT ONCE. A device->none->device flicker that closed
+the UI mid-use appeared only while fold3-usb-watch (0.4 s) and fold3-usbd (1 s)
+both polled this chip; a single reader is rock steady. Stop fold3-usbd and
+fold3-usb-watch before using `watch` or `dp` here.
+
+Usage:
+  fold3-pd status              decoded CC / PD / BC / VBUS state
+  fold3-pd ints                read-and-clear the four interrupt regs, decoded
+  fold3-pd dump                raw 0x00..0x11 hex
+  fold3-pd watch [SECS]        single-reader poller; prints only changes
+  fold3-pd altmode [MODE]      SET_ALTERNATEMODE (default 3 = SRCCAP+VDM)
+  fold3-pd dpstatus [--watch N]  poll the sink's own HPD; safe to repeat
+  fold3-pd dp [--pin X] [--force]  run the DP alt-mode handshake and report
+                               (skips Enter Mode / DP Configure if a mode
+                               is already up -- --force overrides, warily)
+  fold3-pd ccctrl1 [VAL]       read, or write, CC Control1 (DRP = 0x19)
+  fold3-pd drswap              request a data-role swap (become DFP/host)
+  fold3-pd vdm OP [B0 B1 ...]  send one raw whitelisted opcode, print response
+"""
+
+import array
+import fcntl
+import glob
+import os
+import struct
+import sys
+import time
+
+# ---------------------------------------------------------------------------
+# i2c-dev, via raw I2C_RDWR ioctls.
+#
+# i2cget/i2cset would do for single bytes, but the mailbox needs one atomic
+# write of up to 33 bytes and one read of up to 33, and shelling out per byte
+# would also leave gaps another bus user could slip into. /dev/i2c-N + I2C_RDWR
+# gives both in one transaction. 0x25 is claimed by no driver, so no force flag
+# is needed for it; the i2c core serialises against the kernel's own users of
+# the same adapter.
+# ---------------------------------------------------------------------------
+I2C_RDWR = 0x0707
+I2C_M_RD = 0x0001
+
+USBC = 0x25  # MAX77705 CC/PD block
+MFD = 0x66   # MAX77705 MFD -- only used to find the bus number
+
+
+class I2C:
+    def __init__(self, bus):
+        self.fd = os.open("/dev/i2c-%d" % bus, os.O_RDWR)
+
+    def _xfer(self, msgs):
+        # struct i2c_msg { __u16 addr; __u16 flags; __u16 len; __u8 *buf; }
+        # Buffers must stay alive until the ioctl returns, hence `keep`.
+        keep = []
+        blob = b""
+        for addr, flags, data in msgs:
+            buf = array.array("B", data)
+            keep.append(buf)
+            ptr = buf.buffer_info()[0]
+            blob += struct.pack("HHH2xP", addr, flags, len(data), ptr)
+        # struct i2c_rdwr_ioctl_data { struct i2c_msg *msgs; __u32 nmsgs; }
+        arr = array.array("B", blob)
+        hdr = struct.pack("PI4x", arr.buffer_info()[0], len(msgs))
+        fcntl.ioctl(self.fd, I2C_RDWR, hdr)
+        return keep
+
+    def read(self, addr, reg, n=1):
+        keep = self._xfer([(addr, 0, bytes([reg])),
+                           (addr, I2C_M_RD, bytes(n))])
+        return bytes(keep[1])
+
+    def write(self, addr, reg, data=b""):
+        self._xfer([(addr, 0, bytes([reg]) + bytes(data))])
+
+
+def find_bus():
+    """i2c bus numbers shift between boots; never hardcode. Locate the MAX77705
+    by its MFD address (0x66), which udev/sysfs names as <bus>-0066."""
+    for d in sorted(glob.glob("/sys/bus/i2c/devices/*-0066")):
+        return int(os.path.basename(d).split("-")[0])
+    sys.exit("fold3-pd: MAX77705 (i2c 0x66) not found on any bus")
+
+
+# ---------------------------------------------------------------------------
+# Registers (max77705.h)
+# ---------------------------------------------------------------------------
+R_HW_REV, R_FW_REV = 0x00, 0x01
+R_UIC_INT, R_CC_INT, R_PD_INT, R_VDM_INT = 0x02, 0x03, 0x04, 0x05
+R_USBC_STATUS1, R_USBC_STATUS2, R_BC_STATUS = 0x06, 0x07, 0x08
+R_FW_MINOR = 0x09
+R_CC_STATUS0, R_CC_STATUS1 = 0x0A, 0x0B
+R_PD_STATUS0, R_PD_STATUS1 = 0x0C, 0x0D
+R_OPCODE, R_OPCODE_DATA, R_END_DATA, R_OPCODE_RES = 0x21, 0x22, 0x41, 0x51
+
+OPCODE_DATA_LENGTH = 32
+
+# Opcodes. Whitelisted: only what the DP path and its diagnostics need. The
+# firmware-update, factory-test and reset opcodes are deliberately absent --
+# this tool must not be able to reach them even by typo.
+OP_CCCTRL1_R, OP_CCCTRL1_W = 0x0B, 0x0C
+OP_CCCTRL2_R, OP_CCCTRL2_W = 0x0D, 0x0E
+OP_READ_SBU = 0x25
+OP_GET_SRCCAP = 0x31
+OP_SEND_GET_REQUEST = 0x34
+OP_READ_GET_RESPONSE = 0x35
+OP_SWAP_REQUEST = 0x37
+OP_VDM_SET_REQ = 0x48
+OP_VDM_GET_RESP = 0x4B
+OP_GET_PD_MESSAGE = 0x4D
+OP_SET_ALTERNATEMODE = 0x55
+
+OPCODE_WHITELIST = {
+    OP_CCCTRL1_R, OP_CCCTRL1_W, OP_CCCTRL2_R, OP_CCCTRL2_W,
+    OP_READ_SBU, OP_GET_SRCCAP, OP_SEND_GET_REQUEST, OP_READ_GET_RESPONSE,
+    OP_SWAP_REQUEST, OP_VDM_SET_REQ, OP_VDM_GET_RESP, OP_GET_PD_MESSAGE,
+    OP_SET_ALTERNATEMODE,
+}
+
+# GET_VDM_RESP sub-ids (max77705.h: OPCODE_ID_VDM_*)
+VDM_ID_IDENTITY = 0x01
+VDM_ID_SVIDS = 0x02
+VDM_ID_MODES = 0x03
+VDM_ID_ENTER_MODE = 0x04
+VDM_ID_EXIT_MODE = 0x05
+VDM_ID_ATTENTION = 0x06
+VDM_ID_DP_STATUS = 0x10
+VDM_ID_DP_CONFIGURE = 0x11
+
+# VDM_INT bits (MAX77705_VDM_MSG_IRQ_STATUS_Type). Note the register is only
+# one byte wide at 0x05, so DP_Status_Update (b16) / DP_Configure (b17) live in
+# the *second* byte of a 2-byte read. Samsung reads 0x05 and 0x06 together as
+# part of a bulk read of the whole interrupt block.
+VDM_INT_BITS = [
+    (1, "Discover_ID"), (2, "Discover_SVIDs"), (3, "Discover_MODEs"),
+    (4, "Enter_Mode"), (5, "Exit_Mode"), (6, "Attention"),
+]
+
+CC_STAT = {0: "none", 1: "SINK", 2: "SOURCE", 3: "audio-accessory", 4: "debug"}
+CC_PIN = {0: "none", 1: "CC1", 2: "CC2"}
+BC_CHGTYP = {0: "none", 1: "SDP", 2: "CDP", 3: "DCP"}
+PIN_NAMES = {1: "A", 2: "B", 4: "C", 8: "D", 0x10: "E", 0x20: "F"}
+# DP Mode VDO Port_Capability, from mainline include/linux/usb/typec_dp.h
+# (DP_CAP_UFP_D = 1, DP_CAP_DFP_D = 2) and Samsung's identical
+# Num_DP_Port_Capability_Type. 1 is a SINK -- getting this backwards is easy
+# and makes a perfectly ordinary display adapter look like a video source.
+PORT_CAP = {0: "reserved", 1: "UFP_D (a sink)", 2: "DFP_D (a source)",
+            3: "DFP_D + UFP_D"}
+
+
+class Max77705PD:
+    def __init__(self, bus=None, verbose=False):
+        self.bus = find_bus() if bus is None else bus
+        self.i2c = I2C(self.bus)
+        self.verbose = verbose
+        # Bits seen in UIC_INT while waiting for a command response. Reading
+        # UIC_INT clears it, so anything else latched there (VBUSDetI,
+        # CHGTypI...) would be silently eaten; keep it for the caller instead.
+        self.uic_pending = 0
+
+    # -- plain register access -------------------------------------------
+    def rd(self, reg, n=1):
+        return self.i2c.read(USBC, reg, n)
+
+    def rd8(self, reg):
+        return self.rd(reg)[0]
+
+    # -- the opcode mailbox ----------------------------------------------
+    def opcode(self, op, payload=b"", resp_len=32, timeout=3.0):
+        """Run one mailbox command. Returns the response bytes AFTER the opcode
+        echo, i.e. response[0] is what Samsung's code calls opcode_data[1].
+
+        Sequence is exactly max77705_i2c_opcode_write() + the APCmdResI wait in
+        max77705_usbc_cmd_run(): bulk write [opcode|payload] at 0x21, commit
+        with a 0x00 to 0x41 when the payload is short of 32 bytes, wait for
+        UIC_INT bit 7, then bulk read from 0x51.
+        """
+        if op not in OPCODE_WHITELIST:
+            raise ValueError("opcode 0x%02x is not whitelisted" % op)
+        if len(payload) > OPCODE_DATA_LENGTH:
+            raise ValueError("payload too long")
+
+        # Clear a stale APCmdResI so the wait below cannot latch onto an old
+        # response. Preserve the other bits for the caller.
+        self.uic_pending |= self.rd8(R_UIC_INT) & ~0x80
+
+        self.i2c.write(USBC, R_OPCODE, bytes([op]) + payload)
+        if len(payload) < OPCODE_DATA_LENGTH:
+            self.i2c.write(USBC, R_END_DATA, b"\x00")
+
+        deadline = time.monotonic() + timeout
+        while True:
+            uic = self.rd8(R_UIC_INT)
+            if uic & 0x80:
+                self.uic_pending |= uic & ~0x80
+                break
+            self.uic_pending |= uic
+            if time.monotonic() > deadline:
+                raise TimeoutError("opcode 0x%02x: no APCmdResI in %.1fs"
+                                   % (op, timeout))
+            time.sleep(0.005)
+
+        resp = self.rd(R_OPCODE_RES, 1 + resp_len)
+        if resp[0] != op:
+            raise IOError("opcode 0x%02x: response echoed 0x%02x"
+                          % (op, resp[0]))
+        if self.verbose:
+            print("    < op %02x: %s" % (op, resp[1:].hex(" ")))
+        return resp[1:]
+
+    # -- helpers ---------------------------------------------------------
+    def set_altmode(self, mode=0x3):
+        """OPCODE_SET_ALTERNATEMODE. 0x1 = SRCCAP, 0x2 = VDM, 0x3 = both,
+        0x0 = disable (MAXIM_{ENABLE,DISABLE}_ALTERNATE_* in
+        max77705_alternate.h). The firmware will not run VDM exchanges at all
+        until bit 1 is set, so this is the first thing the DP path must do."""
+        return self.opcode(OP_SET_ALTERNATEMODE, bytes([mode]), resp_len=1)
+
+    def ccctrl1(self, val=None):
+        if val is None:
+            return self.opcode(OP_CCCTRL1_R, resp_len=2)[0]
+        self.opcode(OP_CCCTRL1_W, bytes([val]), resp_len=1)
+        return val
+
+    def drswap(self):
+        """OPCODE_SWAP_REQUEST. Samsung's max77705_pd.c sends 0x01 for a
+        DR_SWAP and 0x02 for a PR_SWAP."""
+        return self.opcode(OP_SWAP_REQUEST, b"\x01", resp_len=2)
+
+    def vdm_req(self, nobj, vdm_header, vdos=()):
+        """Send a structured VDM via OPCODE_VDM_DISCOVER_SET_VDM_REQ.
+
+        Payload layout, from struct DP_DP_CONFIGURE and the
+        `write_data.write_data[6] = W_DATA` in
+        max77705_vdm_process_set_DP_configure_mode_req():
+
+            [0]      SEND_VDM_BYTE_DATA: Num_Of_VDO:3 | Cmd_Type:2 << 3
+            [1..4]   VDM header, little endian
+            [5..]    further VDOs, little endian
+
+        Num_Of_VDO counts 4-byte objects INCLUDING the VDM header, which is
+        why Discover Identity (header only) sets 1 and DP Configure (header +
+        one config VDO) sets 2. Cmd_Type is ACK(1) in every request Samsung
+        builds -- odd, but it is what the firmware expects, so do the same.
+        """
+        payload = bytes([(nobj & 0x7) | (1 << 3)]) + struct.pack("<I", vdm_header)
+        for v in vdos:
+            payload += struct.pack("<I", v)
+        return self.opcode(OP_VDM_SET_REQ, payload,
+                           resp_len=2 + 4 + 4 * nobj)
+
+    def vdm_resp(self, sub_id, resp_len=31):
+        """Read a VDM response with OPCODE_VDM_DISCOVER_GET_VDM_RESP.
+
+        Response framing (max77705_vdm_message_handler): [0] sub-id,
+        [1..2] PD message header, [3..6] VDM header, [7..] VDOs. (Samsung
+        indexes the same bytes one higher because it keeps the opcode echo in
+        the buffer; opcode() has already stripped it here.)
+        """
+        r = self.opcode(OP_VDM_GET_RESP, bytes([sub_id]), resp_len=resp_len)
+        msg_hdr = struct.unpack_from("<H", r, 1)[0]
+        vdm_hdr = struct.unpack_from("<I", r, 3)[0]
+        # PD message header, as it is on the wire: Message Type [4:0],
+        # Port Data Role [5], Spec Rev [7:6], Port Power Role [8],
+        # MessageID [11:9], Number of Data Objects [14:12], Extended [15].
+        # NOT the order Samsung's UND_DATA_MSG_HEADER_Type lists, which is
+        # reversed and gives 7 objects for a 5-object Discover Identity ACK.
+        nobj = (msg_hdr >> 12) & 0x7
+        vdos = []
+        for i in range(max(0, nobj - 1)):
+            off = 7 + 4 * i
+            if off + 4 <= len(r):
+                vdos.append(struct.unpack_from("<I", r, off)[0])
+        return {"sub_id": r[0], "msg_hdr": msg_hdr, "vdm_hdr": vdm_hdr,
+                "nobj": nobj, "vdos": vdos, "raw": r}
+
+
+# ---------------------------------------------------------------------------
+# VDM header construction (U_DATA_MSG_VDM_HEADER_Type)
+#   VDM_command:5 | Rsvd2:1 | VDM_command_type:2 | Object_Position:3
+#   | Rsvd:2 | Structured_VDM_Version:2 | VDM_Type:1 | Standard_Vendor_ID:16
+# ---------------------------------------------------------------------------
+def vdm_header(cmd, svid, objpos=0, cmd_type=0, version=0):
+    return ((cmd & 0x1F) | ((cmd_type & 0x3) << 6) | ((objpos & 0x7) << 8)
+            | ((version & 0x3) << 13) | (1 << 15) | ((svid & 0xFFFF) << 16))
+
+
+SVID_PD = 0xFF00
+SVID_DP = 0xFF01
+
+VDM_CMD_DISCOVER_IDENTITY = 1
+VDM_CMD_DISCOVER_SVIDS = 2
+VDM_CMD_DISCOVER_MODES = 3
+VDM_CMD_ENTER_MODE = 4
+VDM_CMD_EXIT_MODE = 5
+VDM_CMD_DP_STATUS = 16     # SVID-specific: DP Status Update
+VDM_CMD_CONFIGURE = 17     # SVID-specific: DP Configure
+
+
+def dp_config_vdo(pin_mask, as_ufp_d=True):
+    """UND_DP_CONFIG_UPDATE_Type:
+         SEL_Configuration:2 | Select_DP_V1p3:1 | Select_USB_Gen2:1
+         | Reserved:4 | DFP_D_PIN_Assign_A..F:6 | Reserved:2
+         | UFP_D_PIN_Assign_A..F:6 | Reserved:2 | Reserved:8
+
+    Samsung sets SEL_Configuration = num_Cfg_UFP_U_as_UFP_D (2), Select_DP_V1p3
+    = 1, and puts the chosen pin assignment in the DFP_D field (bits 8..13) --
+    that is what `write_data.write_data[6] = W_DATA` writes. Byte 6 of the
+    payload is byte 1 of this VDO, i.e. exactly those bits.
+    """
+    sel = 2 if as_ufp_d else 1
+    return sel | (1 << 2) | ((pin_mask & 0x3F) << 8)
+
+
+# ---------------------------------------------------------------------------
+# decoding / printing
+# ---------------------------------------------------------------------------
+def decode_status(p):
+    cc0 = p.rd8(R_CC_STATUS0)
+    cc1 = p.rd8(R_CC_STATUS1)
+    bc = p.rd8(R_BC_STATUS)
+    pd0 = p.rd8(R_PD_STATUS0)
+    pd1 = p.rd8(R_PD_STATUS1)
+    s1 = p.rd8(R_USBC_STATUS1)
+    s2 = p.rd8(R_USBC_STATUS2)
+    return {
+        "cc_status0": cc0, "cc_status1": cc1, "bc_status": bc,
+        "pd_status0": pd0, "pd_status1": pd1,
+        "usbc_status1": s1, "usbc_status2": s2,
+        "ccstat": cc0 & 0x7, "ccpinstat": (cc0 >> 6) & 0x3,
+        "vbusdet": bool(bc & 0x80), "chgtyp": bc & 0x3,
+        "datarole": "DFP" if pd1 & 0x80 else "UFP",
+        "enter_mode": bool(pd1 & 0x20), "psrdy": bool(pd1 & 0x10),
+    }
+
+
+def cmd_status(p):
+    hw, fw, minor = p.rd8(R_HW_REV), p.rd8(R_FW_REV), p.rd8(R_FW_MINOR)
+    s = decode_status(p)
+    print("MAX77705 CC/PD   i2c-%d addr 0x%02x   hw 0x%02x fw 0x%02x.%02x"
+          % (p.bus, USBC, hw, fw, minor))
+    print("  CC_STATUS0 0x%02x   CCStat=%-16s CCPinStat=%s"
+          % (s["cc_status0"], CC_STAT.get(s["ccstat"], "?"),
+             CC_PIN.get(s["ccpinstat"], "?")))
+    print("  BC_STATUS  0x%02x   VBUSDet=%-16s ChgTyp=%s"
+          % (s["bc_status"], s["vbusdet"], BC_CHGTYP.get(s["chgtyp"], "?")))
+    print("  PD_STATUS  0x%02x 0x%02x   DataRole=%s  EnterMode=%s  PSRDY=%s"
+          % (s["pd_status0"], s["pd_status1"], s["datarole"],
+             s["enter_mode"], s["psrdy"]))
+    print("  USBC_STATUS 0x%02x 0x%02x" % (s["usbc_status1"], s["usbc_status2"]))
+    # What the three measured states mean, so the reading is self-explaining
+    # (HANDBOOK 34.4).
+    if s["ccstat"] == 0 and s["ccpinstat"] == 0:
+        print("  -> nothing attached")
+    elif s["ccstat"] == 1:
+        print("  -> we are the SINK: a charger, a PC, or a powered dock")
+    elif s["ccstat"] == 2:
+        print("  -> we are the SOURCE: a bus-powered device is attached")
+    elif s["ccstat"] == 3:
+        print("  -> PASSIVE analog jack adapter: can never work on this unit")
+    elif s["ccpinstat"]:
+        print("  -> something attached, CC latched, no role yet")
+
+
+def cmd_ints(p):
+    uic, cc, pd, vdm = p.rd(R_UIC_INT, 4)
+    uic |= p.uic_pending
+    print("UIC_INT 0x%02x  CC_INT 0x%02x  PD_INT 0x%02x  VDM_INT 0x%02x"
+          " (read-to-clear)" % (uic, cc, pd, vdm))
+    names = []
+    for bit, nm in ((7, "APCmdRes"), (6, "SYSMsg"), (5, "VBUSDet"),
+                    (4, "VbADC"), (3, "DCDTmo"), (1, "CHGTyp"), (0, "UIDADC")):
+        if uic & (1 << bit):
+            names.append(nm)
+    print("  UIC: %s" % (", ".join(names) or "-"))
+    names = []
+    for bit, nm in ((7, "VCONNOCP"), (6, "VSAFE0V"), (5, "AttachSrcErr"),
+                    (4, "VCONNSC"), (3, "CCPinStat"), (2, "CCIStat"),
+                    (1, "CCVcnStat"), (0, "CCStat")):
+        if cc & (1 << bit):
+            names.append(nm)
+    print("  CC:  %s" % (", ".join(names) or "-"))
+    names = []
+    for bit, nm in ((7, "PDMsg"), (5, "DataRole"), (1, "SSAcc"), (0, "FCTID")):
+        if pd & (1 << bit):
+            names.append(nm)
+    print("  PD:  %s" % (", ".join(names) or "-"))
+    names = [nm for bit, nm in VDM_INT_BITS if vdm & (1 << bit)]
+    print("  VDM: %s" % (", ".join(names) or "-"))
+
+
+def cmd_dump(p):
+    data = p.rd(0x00, 0x12)
+    for off in range(0, len(data), 8):
+        print("  %02x: %s" % (off, data[off:off + 8].hex(" ")))
+
+
+def cmd_watch(p, interval=1.0):
+    # flush=True on every print below: over ssh stdout is a pipe, so it is
+    # block-buffered, and a watcher killed by a timeout before it fills 4 KiB
+    # prints absolutely nothing. That happened on 2026-11-20 and looked
+    # exactly like "the port never changed state".
+    print("watching (single reader; stop fold3-usbd and fold3-usb-watch first)"
+          " -- Ctrl-C to stop", flush=True)
+    prev = None
+    while True:
+        s = decode_status(p)
+        key = (s["cc_status0"], s["bc_status"], s["pd_status1"])
+        if key != prev:
+            print("%s  CC=0x%02x %-7s %-5s  BC=0x%02x vbus=%d %-5s  PD1=0x%02x %s"
+                  % (time.strftime("%H:%M:%S"), s["cc_status0"],
+                     CC_STAT.get(s["ccstat"], "?"),
+                     CC_PIN.get(s["ccpinstat"], "?"), s["bc_status"],
+                     s["vbusdet"], BC_CHGTYP.get(s["chgtyp"], "?"),
+                     s["pd_status1"], s["datarole"]), flush=True)
+            prev = key
+        time.sleep(interval)
+
+
+# ---------------------------------------------------------------------------
+# the DP alt-mode handshake
+# ---------------------------------------------------------------------------
+def describe_dp_caps(vdo):
+    """UND_VDO_MODE_DP_CAPABILITY_Type:
+       Port_Capability:2 | Signalling_DP:4 | Receptacle_Indication:1
+       | USB_2p0_Not_Used:1 | DFP_D_Pin_Assignments:8 | UFP_D_Pin_Assignments:8
+    """
+    cap = vdo & 0x3
+    sig = (vdo >> 2) & 0xF
+    # DP_CAP_RECEPTACLE = BIT(6): SET means the partner has a Type-C
+    # receptacle, CLEAR means it is the far end of a captive plug/cable.
+    recept = bool(vdo & (1 << 6))
+    usb2_nu = (vdo >> 7) & 1
+    dfp_pins = (vdo >> 8) & 0xFF
+    ufp_pins = (vdo >> 16) & 0xFF
+    return {
+        "port_capability": cap, "signalling": sig, "receptacle": recept,
+        "usb2_not_used": usb2_nu, "dfp_pins": dfp_pins, "ufp_pins": ufp_pins,
+    }
+
+
+def pins_str(mask):
+    out = [PIN_NAMES[b] for b in sorted(PIN_NAMES) if mask & b]
+    return ",".join(out) if out else "-"
+
+
+def pick_pin(mask, prefer_multi=False):
+    """Samsung's max77705_vdm_dp_select_pin(). `multi` means the sink asked for
+    Multi-Function Preference, i.e. it wants USB3 alongside DP, so the 2-lane
+    assignments come first. Otherwise prefer the 4-lane ones (C/E), which is
+    what we want here: this unit drops the SuperSpeed PHY anyway, the USB audio
+    dongle is full-speed and rides USB2, and 4 lanes is the most video
+    bandwidth we can get.
+    """
+    order = [8, 2, 0x20, 4, 0x10, 1] if prefer_multi else [4, 0x10, 1, 8, 2, 0x20]
+    for b in order:
+        if mask & b:
+            return b
+    return 0
+
+
+DP_CONN = {0: "nothing", 1: "DFP_D", 2: "UFP_D", 3: "DFP_D+UFP_D"}
+
+
+def dp_status_update(p, quiet=False):
+    """Send one DP Status Update and return the sink's status VDO, or None.
+
+    This is a QUERY, not a configuration, and it is the only VDM in the DP
+    alt-mode set that is safe to send over and over on a live session. It is
+    also the one place the sink reports HPD_State (bit 7) and HPD_Interrupt
+    (bit 8) for its OWN downstream connector -- on this dock, its HDMI port.
+    So bit 7 is as close as we can get to "is the TV plugged in and awake",
+    measured by the dock rather than assumed by us.
+
+    Read this BEFORE forcing software HPD into msm_dp. With bit 7 clear there
+    is probably nothing live behind the adapter, and a forced HPD just makes
+    the DP controller train a link into a sink that will not answer DPCD --
+    which is the "aux not connected" loop we kept hitting.
+    """
+    hdr = vdm_header(VDM_CMD_DP_STATUS, SVID_DP, objpos=1)
+    try:
+        p.vdm_req(2, hdr, (0x00000001,))      # Port_Connected = DFP_D
+        r = p.vdm_resp(VDM_ID_DP_STATUS, 11)
+    except (TimeoutError, IOError, OSError) as e:
+        if not quiet:
+            print("DP Status Update failed: %s" % e)
+        return None
+    ctype = (r["vdm_hdr"] >> 6) & 0x3
+    if ctype != 1:
+        if not quiet:
+            print("DP Status Update %s" % {2: "NAK", 3: "BUSY"}.get(ctype, "?"))
+        return None
+    return r["vdos"][0] if r["vdos"] else None
+
+
+def describe_dp_status(st):
+    return ("0x%08x  connected=%s%s%s  hpd=%d hpd-irq=%d"
+            % (st, DP_CONN.get(st & 3, "?"),
+               " enabled" if st & (1 << 3) else "",
+               " multi-func-pref" if st & (1 << 4) else "",
+               (st >> 7) & 1, (st >> 8) & 1))
+
+
+def cmd_dpstatus(p, interval=None):
+    """Poll the sink's DP status. Safe to leave running: see dp_status_update.
+
+    With no interval, one shot. With one, loop and print only on change, which
+    is how to watch a TV being switched on at the other end of the dock.
+    """
+    last = None
+    while True:
+        st = dp_status_update(p)
+        if st is not None and st != last:
+            print("%s  %s" % (time.strftime("%H:%M:%S"),
+                                describe_dp_status(st)), flush=True)
+            last = st
+        if interval is None:
+            return
+        time.sleep(interval)
+
+
+def cmd_dp(p, force_pin=None, quiet=False, force=False):
+    def say(*a):
+        if not quiet:
+            print(*a)
+
+    s = decode_status(p)
+    if s["ccstat"] == 0 and s["ccpinstat"] == 0:
+        sys.exit("fold3-pd dp: nothing is attached (CC_STATUS0 = 0x00)")
+    if s["ccstat"] == 3:
+        sys.exit("fold3-pd dp: that is a passive analog adapter, not a dock")
+
+    say("attached: CCStat=%s CCPinStat=%s VBUS=%s DataRole=%s"
+        % (CC_STAT.get(s["ccstat"], "?"), CC_PIN.get(s["ccpinstat"], "?"),
+           s["vbusdet"], s["datarole"]))
+
+    # Is a mode already entered? PD_STATUS1 bit 5 is the CHIP's own record, so
+    # it outlives this process and is the right thing to test.
+    #
+    # Enter Mode and DP Configure are the only two state-CHANGING VDMs below;
+    # the Discover* and DP Status ones are queries. Samsung's driver sends
+    # each of the two exactly once per attach, and guards the second with
+    # is_sent_pin_configuration. There is a reason. A sink already in the mode
+    # may answer a second Enter Mode however it likes, and this dock answers
+    # by going quiet: SINK_COUNT drops to 0 and nothing short of physically
+    # pulling the cable brings it back. On 2026-11-19 we re-sent both dozens
+    # of times on one live session, and that is what cost us the adapter for
+    # the rest of the evening. So: skip them when a mode is already up.
+    reused = s["enter_mode"] and not force
+    results = {"reused": reused}
+    if reused:
+        say("")
+        say("ALREADY IN ALT MODE (PD_STATUS1 EnterMode=1) -- re-using it.")
+        say("  Enter Mode and DP Configure will be SKIPPED on purpose. For a")
+        say("  genuinely fresh handshake, unplug and replug the cable; --force")
+        say("  re-sends them on the live session and may wedge the sink.")
+        say("")
+    else:
+        # 1. Enable alt-mode handling in the firmware. Without MAXIM_ENABLE_
+        #    ALTERNATE_VDM the chip transports no VDMs at all.
+        say("enable alt mode (SET_ALTERNATEMODE 0x3)")
+        p.set_altmode(0x3)
+
+    # 2. We must be the DFP to be the DP source. A powered dock attaches as
+    #    Source+DFP and normally swaps data roles so the phone becomes host;
+    #    if it has not, ask.
+    if s["datarole"] != "DFP":
+        say("data role is UFP -- requesting DR_SWAP")
+        try:
+            p.drswap()
+        except (TimeoutError, IOError) as e:
+            say("  DR_SWAP failed: %s" % e)
+        time.sleep(0.3)
+        s = decode_status(p)
+        say("  data role now %s" % s["datarole"])
+
+    def req(name, nobj, hdr, vdos=()):
+        say("-> %s" % name)
+        try:
+            p.vdm_req(nobj, hdr, vdos)
+        except (TimeoutError, IOError) as e:
+            say("   request failed: %s" % e)
+            return False
+        return True
+
+    def resp(name, sub_id, length=31):
+        try:
+            r = p.vdm_resp(sub_id, length)
+        except (TimeoutError, IOError) as e:
+            say("   no %s response: %s" % (name, e))
+            return None
+        ctype = (r["vdm_hdr"] >> 6) & 0x3
+        if ctype == 2:
+            say("<- %s NAK" % name)
+            return None
+        if ctype == 3:
+            say("<- %s BUSY" % name)
+            return None
+        say("<- %s ACK  svid=0x%04x nobj=%d vdos=%s"
+            % (name, r["vdm_hdr"] >> 16, r["nobj"],
+               " ".join("0x%08x" % v for v in r["vdos"])))
+        results[name] = r
+        return r
+
+    # 3. Discover Identity. The chip usually sends this itself on attach, but
+    #    sending it explicitly makes the sequence deterministic and tells us
+    #    the dock's VID/PID.
+    if req("Discover Identity", 1, vdm_header(VDM_CMD_DISCOVER_IDENTITY, SVID_PD)):
+        r = resp("Discover Identity", VDM_ID_IDENTITY)
+        if r and len(r["vdos"]) >= 1:
+            say("   ID header 0x%08x  VID 0x%04x" % (r["vdos"][0], r["vdos"][0] & 0xFFFF))
+            if len(r["vdos"]) >= 3:
+                say("   product  0x%08x  PID 0x%04x" % (r["vdos"][2], r["vdos"][2] >> 16))
+
+    # 4. Discover SVIDs -- is 0xFF01 (DisplayPort) in the list?
+    dp_supported = False
+    if req("Discover SVIDs", 1, vdm_header(VDM_CMD_DISCOVER_SVIDS, SVID_PD)):
+        r = resp("Discover SVIDs", VDM_ID_SVIDS)
+        if r:
+            svids = []
+            for v in r["vdos"]:
+                for h in ((v >> 16) & 0xFFFF, v & 0xFFFF):
+                    if h:
+                        svids.append(h)
+            say("   SVIDs: %s" % ", ".join("0x%04x" % v for v in svids))
+            dp_supported = SVID_DP in svids
+    if not dp_supported:
+        say("!! the partner does not advertise SVID 0xFF01 -- no DisplayPort")
+        return results
+
+    # 5. Discover Modes for the DP SVID -> its pin assignments.
+    pin_mask = 0
+    multi_pref = False
+    if req("Discover Modes", 1, vdm_header(VDM_CMD_DISCOVER_MODES, SVID_DP)):
+        r = resp("Discover Modes", VDM_ID_MODES, 11)
+        if r and r["vdos"]:
+            caps = describe_dp_caps(r["vdos"][0])
+            say("   DP caps: port=%s, %s, DFP_D-field pins=%s UFP_D-field pins=%s"
+                % (PORT_CAP.get(caps["port_capability"], "?"),
+                   "receptacle" if caps["receptacle"] else "captive plug",
+                   pins_str(caps["dfp_pins"]), pins_str(caps["ufp_pins"])))
+            if caps["port_capability"] == 2:
+                say("!! partner says it is DFP_D only -- a video SOURCE, not a"
+                    " display. Nothing to send a picture to.")
+                return results
+            # DP_CAP_PIN_ASSIGN_UFP_D() from typec_dp.h: a partner with a
+            # RECEPTACLE describes its own (sink) assignments in the UFP_D
+            # field, but one on the end of a CAPTIVE PLUG describes them in
+            # the DFP_D field. Reading the wrong field yields an empty mask
+            # and looks like "this adapter does not support DisplayPort".
+            pin_mask = (caps["ufp_pins"] if caps["receptacle"]
+                        else caps["dfp_pins"])
+            say("   sink pin assignments: %s" % pins_str(pin_mask))
+    if not pin_mask:
+        say("!! no usable pin assignment advertised")
+        return results
+
+    # 6. Enter Mode on the DP SVID, object position 1. State-changing: once
+    #    per attach only (see the `reused` comment above).
+    if not reused:
+        if req("Enter Mode", 1, vdm_header(VDM_CMD_ENTER_MODE, SVID_DP, objpos=1)):
+            resp("Enter Mode", VDM_ID_ENTER_MODE, 7)
+
+    # 7. DP Status Update. A query, so it runs either way, and it is the only
+    #    report we get of the sink's OWN hot-plug state.
+    st = dp_status_update(p, quiet=quiet)
+    if st is not None:
+        multi_pref = bool(st & (1 << 4))
+        say("<- DP Status %s" % describe_dp_status(st))
+        results["dp_status"] = st
+        results["hpd"] = bool(st & (1 << 7))
+        results["hpd_irq"] = bool(st & (1 << 8))
+
+    # 8. DP Configure with the chosen pin assignment. Also state-changing.
+    pin = force_pin if force_pin else pick_pin(pin_mask, multi_pref)
+    if not pin:
+        say("!! could not choose a pin assignment from mask 0x%02x" % pin_mask)
+        return results
+    lanes = 4 if pin in (4, 0x10, 1) else 2
+    if reused:
+        say("keeping the pin configuration this session already has"
+            " (we would have picked %s, %d lanes)"
+            % (PIN_NAMES.get(pin, "?"), lanes))
+    else:
+        say("choosing pin assignment %s (%d DP lanes)"
+            % (PIN_NAMES.get(pin, "?"), lanes))
+        if req("DP Configure", 2, vdm_header(VDM_CMD_CONFIGURE, SVID_DP, objpos=1),
+               vdos=(dp_config_vdo(pin),)):
+            resp("DP Configure", VDM_ID_DP_CONFIGURE, 11)
+
+    s = decode_status(p)
+    say("")
+    say("after the handshake: EnterMode=%s DataRole=%s CCPinStat=%s"
+        % (s["enter_mode"], s["datarole"], CC_PIN.get(s["ccpinstat"], "?")))
+    say("pin assignment %s, %d lanes, orientation %s"
+        % (PIN_NAMES.get(pin, "?"), lanes,
+           "normal (CC1)" if s["ccpinstat"] == 1 else "reversed (CC2)"))
+    results["chosen_pin"] = pin
+    results["lanes"] = lanes
+    results["orientation"] = s["ccpinstat"]
+    return results
+
+
+def main():
+    args = sys.argv[1:]
+    verbose = False
+    if "-v" in args:
+        args.remove("-v")
+        verbose = True
+    cmd = args[0] if args else "status"
+    p = Max77705PD(verbose=verbose)
+
+    if cmd == "status":
+        cmd_status(p)
+    elif cmd == "ints":
+        cmd_ints(p)
+    elif cmd == "dump":
+        cmd_dump(p)
+    elif cmd == "watch":
+        cmd_watch(p, float(args[1]) if len(args) > 1 else 1.0)
+    elif cmd == "altmode":
+        mode = int(args[1], 0) if len(args) > 1 else 3
+        print("SET_ALTERNATEMODE 0x%x -> %s" % (mode, p.set_altmode(mode).hex()))
+    elif cmd == "ccctrl1":
+        if len(args) > 1:
+            v = int(args[1], 0)
+            p.ccctrl1(v)
+            print("CC Control1 <- 0x%02x" % v)
+        else:
+            print("CC Control1 = 0x%02x" % p.ccctrl1())
+    elif cmd == "drswap":
+        print("DR_SWAP -> %s" % p.drswap().hex())
+    elif cmd == "dpstatus":
+        iv = None
+        if "--watch" in args:
+            i = args.index("--watch")
+            iv = float(args[i + 1]) if len(args) > i + 1 else 1.0
+        cmd_dpstatus(p, iv)
+    elif cmd == "dp":
+        hard = "--force" in args
+        force = None
+        if "--pin" in args:
+            name = args[args.index("--pin") + 1].upper()
+            force = next((b for b, n in PIN_NAMES.items() if n == name), None)
+            if force is None:
+                sys.exit("fold3-pd: --pin wants one of A B C D E F")
+        cmd_dp(p, force_pin=force, force=hard)
+    elif cmd == "vdm":
+        op = int(args[1], 0)
+        payload = bytes(int(a, 0) for a in args[2:])
+        print(p.opcode(op, payload).hex(" "))
+    else:
+        sys.exit(__doc__.strip().split("Usage:")[-1])
+
+
+if __name__ == "__main__":
+    main()
